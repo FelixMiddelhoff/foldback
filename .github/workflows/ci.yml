@@ -125,7 +125,7 @@ jobs:
   # Unity 6000.6.0f1 + IL2CPP install before this job was written (build
   # succeeded, the built player ran and printed PASS) — this job codifies
   # that exact sequence for CI, but hasn't itself completed a real run yet:
-  # it needs `UNITY_EMAIL`/`UNITY_PASSWORD`/`UNITY_SERIAL` (or
+  # it needs `UNITY_EMAIL`/`UNITY_PASSWORD` (or
   # `UNITY_LICENSE`) repository secrets for a Unity license, which only a
   # maintainer with a Unity account can add (see foldback-ci-release-plan.md
   # §4.5's "secrets set up once, referenced by name" pattern) — treat this
@@ -145,15 +145,16 @@ jobs:
         run: |
           mkdir -p examples/unity-demo/Assets/Plugins/x86_64
           cp target/debug/foldback_sys.dll examples/unity-demo/Assets/Plugins/x86_64/
-      - uses: buildalon/unity-setup@v1
+      - uses: buildalon/unity-setup@v2
         with:
           unity-version: "6000.6.0f1"
           modules: windows-il2cpp
-      - uses: buildalon/activate-unity-license@v1
+      - uses: buildalon/activate-unity-license@v2
         with:
+          # Personal license (the default `license: personal`) only needs
+          # username/password — no serial, that's Professional-only.
           username: ${{ secrets.UNITY_EMAIL }}
           password: ${{ secrets.UNITY_PASSWORD }}
-          serial: ${{ secrets.UNITY_SERIAL }}
       - name: Build the IL2CPP player
         shell: bash
         run: |
