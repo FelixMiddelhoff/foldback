@@ -13,6 +13,8 @@ path = "src/main.rs"
 foldback-core = { path = "../foldback-core" }
 clap = { version = "4", features = ["derive"] }
 thiserror = "1"
+syn = { version = "3.0.5", features = ["full"] }
+walkdir = "2.5.0"
 
 [dev-dependencies]
 assert_cmd = "2"

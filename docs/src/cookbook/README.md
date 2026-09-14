@@ -118,7 +118,11 @@ struct PlayerState {
 session.hash_fields(tick, entity_id, &player_state)?; // macro-generated per-field hashing + value capture
 ```
 
-**Opt-in by default** — see [RFC-0003](../project/rfcs/0003-field-hashing-opt-in.md) for why. `#[derive(FoldbackHash)]` hashes nothing until a field is explicitly marked `#[foldback(hash)]`; an unmarked field's name lands in the generated `UNTRACKED_FIELDS` constant rather than silently disappearing either way. A field's type needs a `foldback_core::hashable::FieldBytes` impl to be hash-able — built for the common fixed-size numeric primitives and fixed-size arrays of them; implement it yourself for a custom vector/quaternion type.
+**Opt-in by default** — see [RFC-0003](../project/rfcs/0003-field-hashing-opt-in.md) for why. `#[derive(FoldbackHash)]` hashes nothing until a field is explicitly marked; an unmarked field's name lands in the generated `UNTRACKED_FIELDS` constant rather than silently disappearing either way. Two ways to mark a field, both landing in `TRACKED_FIELDS`:
+- `#[foldback(hash)]` — hashed here, by the generated `write_hashed_fields` above, via `foldback_core::hashable::FieldBytes` (built for the common fixed-size numeric primitives and fixed-size arrays of them; implement it yourself for a custom vector/quaternion type).
+- `#[foldback(reflect)]` — tracked, but left for a reflective walker (e.g. Bevy's `foldback_rs::bevy::hash_reflected`, see [Auto/Reflective Hashing](../integrations/reflective-hashing.md)) to hash instead. No `FieldBytes` bound, so a compound field (a nested struct, a `Vec`, a `HashMap`) can opt in without needing a `FieldBytes` impl it doesn't otherwise need.
+
+`#[foldback(skip)]` marks a field as deliberately not hashed (distinct from leaving it unmarked, which still shows up in `UNTRACKED_FIELDS` for visibility).
 
 ---
 

@@ -7,13 +7,21 @@ repository.workspace = true
 
 [dependencies]
 bevy_reflect = { version = "0.19.1", optional = true }
+egui = { version = "0.36.2", optional = true }
 foldback-core = { path = "../foldback-core" }
 ggrs = { version = "0.13", optional = true }
 
 [dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
 tempfile = "3"
 
 [features]
 default = []
 ggrs = ["dep:ggrs"]
-bevy = ["dep:bevy_reflect"]
+bevy = ["dep:bevy_reflect", "foldback-core/derive"]
+bevy-debug-panel = ["bevy", "dep:egui"]
+
+[[bench]]
+name = "reflective_vs_explicit"
+harness = false
+required-features = ["bevy"]

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+mod lint;
 mod report;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use report::{analyze, Report};
 
@@ -29,6 +30,21 @@ enum Command {
         /// Path to the .foldback session file.
         file: PathBuf,
     },
+    /// List every `#[derive(FoldbackHash)]`-tracked type in a source
+    /// tree — reflective-hashing visibility tooling (plan §4). Bevy/Rust
+    /// only for now; Unity/Godot scanners aren't built yet.
+    Lint {
+        /// Which binding's marker syntax to scan for.
+        #[arg(long, value_enum)]
+        engine: Engine,
+        /// Directory to scan (recursively) for `.rs` files.
+        path: PathBuf,
+    },
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum Engine {
+    Bevy,
 }
 
 fn main() -> ExitCode {
@@ -36,6 +52,38 @@ fn main() -> ExitCode {
     match cli.command {
         Command::Analyze { file } => run_analyze(&file),
         Command::CiCheck { file } => run_ci_check(&file),
+        Command::Lint { engine, path } => run_lint(engine, &path),
+    }
+}
+
+fn run_lint(engine: Engine, path: &Path) -> ExitCode {
+    let Engine::Bevy = engine;
+    match lint::scan_bevy(path) {
+        Ok(types) if types.is_empty() => {
+            println!("no #[derive(FoldbackHash)] types found under {}", path.display());
+            ExitCode::SUCCESS
+        }
+        Ok(types) => {
+            for t in &types {
+                println!("{} ({})", t.name, t.file.display());
+                println!("  tracked   : {}", join_or_none(&t.tracked));
+                println!("  untracked : {}", join_or_none(&t.untracked));
+                println!();
+            }
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn join_or_none(names: &[String]) -> String {
+    if names.is_empty() {
+        "(none)".to_string()
+    } else {
+        names.join(", ")
     }
 }
 

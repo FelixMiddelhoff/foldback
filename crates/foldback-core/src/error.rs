@@ -22,6 +22,22 @@ pub enum Error {
          self-referential reflected object graph"
     )]
     ReflectionDepthExceeded { path: String, max_depth: usize },
+    /// A reflective walker re-entered a value it's already hashing on
+    /// the current path — a genuine reference cycle (as opposed to
+    /// `ReflectionDepthExceeded`, which fires on a merely deep-but-finite
+    /// graph). Identity-based: two distinct values with equal content
+    /// never trigger this, only the same value visited twice on one
+    /// path.
+    #[error("reflective hash walk found a reference cycle at '{path}'")]
+    ReflectionCycleDetected { path: String },
+    /// The root value handed to a reflective walker doesn't have the
+    /// shape (a named-field struct) the field-name opt-in list can be
+    /// applied to.
+    #[error(
+        "reflective hashing requires a struct root (so its #[derive(FoldbackHash)] tracked-field \
+         list has something to filter) — got a different reflected shape"
+    )]
+    ReflectionRootNotStruct,
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }

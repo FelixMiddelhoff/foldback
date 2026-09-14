@@ -26,7 +26,7 @@ See [Cookbook recipe 3](../cookbook/README.md#3-ggrsbevy-integration) — GGRS h
 
 ## Reflective hashing
 
-Not planned for the Rust/Bevy path in Phase 0/2 the way it is for engine bindings with a native reflection system — Bevy's own ECS query system is the natural mechanism if this is built later. See [Auto/Reflective Hashing](reflective-hashing.md).
+Landed: `foldback-rs`'s `bevy` feature walks `bevy_reflect` component fields marked `#[foldback(hash)]`/`#[foldback(reflect)]` and hashes them without hand-written `hash_entity`/`hash_field` calls, plus a `bevy-debug-panel` feature for an in-`egui` live view of what got captured. See [Auto/Reflective Hashing](reflective-hashing.md) for the full picture, including what's a deliberate non-goal rather than unfinished.
 
 ## CI integration
 

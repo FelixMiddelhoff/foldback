@@ -26,6 +26,13 @@ use crate::Error;
 /// [`Session::hash_fields`] (`session.hash_fields(tick, entity_id,
 /// &value)`), not directly.
 pub trait FoldbackHash {
+    /// Names of fields marked `#[foldback(hash)]` — the actual opt-in
+    /// list. A reflective walker (`foldback-reflective-hashing.md` §1)
+    /// uses this to filter a struct's fields to the same set the manual
+    /// derive would hash, so "the game tagged this field" means the same
+    /// thing whether the tag was read by codegen or by reflection.
+    const TRACKED_FIELDS: &'static [&'static str];
+
     /// Names of fields present on the struct but not marked
     /// `#[foldback(hash)]` or `#[foldback(skip)]` — an unmarked field is
     /// still not hashed (opt-in stays opt-in), but its name stays here
