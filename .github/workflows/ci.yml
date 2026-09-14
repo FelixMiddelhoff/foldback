@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  fmt-and-lint:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  core-test:
+    name: test (${{ matrix.os }})
+    needs: fmt-and-lint
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+
+  # determinism: cross-platform (incl. ARM64) hash-equality job — added once
+  # foldback-core has real hashing code. Per foldback-ci-release-plan.md §4.2,
+  # a failure here is a release blocker, never a flaky-retry candidate.
+  #
+  # cli-golden: golden-file tests against checked-in fixtures — added once
+  # foldback-cli has real commands to test.
+  #
+  # ui-unit: Vitest component tests — added once foldback-ui exists.

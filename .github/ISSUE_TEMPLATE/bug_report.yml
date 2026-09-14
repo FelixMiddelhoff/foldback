@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in Foldback behaves incorrectly.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what actually happened.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Foldback version
+      description: Output of `foldback --version`, or the crate/binding version if not using the CLI.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - foldback-core
+        - foldback-cli
+        - foldback-ui
+        - Bevy/GGRS binding
+        - Unity binding
+        - Godot binding
+        - Unreal binding
+        - Docs
+        - Other/unsure
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: A `.foldback` session file, a minimal repro project, or exact steps. Determinism bugs are only actionable with something reproducible.
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Rust version (if building from source), engine version (if using a binding).
+    validations:
+      required: false
