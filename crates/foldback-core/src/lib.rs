@@ -7,6 +7,8 @@ pub mod bisect;
 pub mod error;
 pub mod format;
 pub mod hash;
+#[cfg(feature = "live")]
+pub mod live;
 pub mod ring_buffer;
 pub mod session;
 pub mod snapshot;

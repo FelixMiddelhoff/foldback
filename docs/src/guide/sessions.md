@@ -42,6 +42,6 @@ session.finish_recording()?; // writes the closing frame
 
 The file format is append-only and streaming-writable — frames are written as they happen, not buffered and flushed at the end — and tolerant of truncation: a crash mid-recording still leaves a file that parses cleanly up to the last complete frame. Full byte layout: [Protocol & File Format Spec](../reference/protocol-spec.md).
 
-## Live mode (planned, Phase 2)
+## Live mode (game side built, UI side planned — Phase 2)
 
-A running game will be able to stream directly to the Foldback UI over a local WebSocket, using the same frame format as the file — so the UI's parser is one code path for both live and offline analysis. Not implemented yet; see [RFC-0004](../project/rfcs/0004-live-mode-transport.md) for the settled design.
+A running game streams directly over a local WebSocket, using the same frame format as a `.foldback` file — so a reader has one parser for both live and offline analysis. The game-embeddable server (`foldback_core::live::LiveServer`, feature `live`) is built: bind a loopback socket, send frames as they happen, never blocks the game's own thread. See [Cookbook recipe 7](../cookbook/README.md#7-live-mode) for the API. The Foldback UI's WebSocket *client* isn't built yet — `foldback-ui` currently only opens `.foldback` files (drag-and-drop or a dialog), not a live connection. Full wire format: [RFC-0004](../project/rfcs/0004-live-mode-transport.md).
