@@ -76,8 +76,77 @@ pub struct SessionData {
     pub divergence_tick: Option<u64>,
 }
 
-fn hex(bytes: u64) -> String {
+pub fn hex(bytes: u64) -> String {
     format!("{bytes:016x}")
+}
+
+/// One `.foldback` frame, converted to the same JSON shapes [`load`]
+/// produces — used by live mode (`src/live.rs`) so the frontend has one
+/// rendering code path for both offline files and a live stream, exactly
+/// per protocol-spec.md §2.1's "one parser for both" principle, extended
+/// from the wire format to the UI layer too.
+#[derive(Debug, Serialize, Clone)]
+#[serde(tag = "kind")]
+pub enum LiveEvent {
+    Hello {
+        tick_rate_hz: u32,
+        peer_count: u32,
+        build_id: String,
+    },
+    TickHash(TickHashEntry),
+    EntityHash(EntityHashEntry),
+    FieldHash(FieldHashEntry),
+    Snapshot {
+        tick: u64,
+    },
+    Metadata,
+    EndOfStream,
+    Disconnected {
+        reason: String,
+    },
+}
+
+pub fn frame_to_live_event(frame: Frame) -> LiveEvent {
+    match frame {
+        Frame::TickHash {
+            tick,
+            peer_id,
+            hash,
+        } => LiveEvent::TickHash(TickHashEntry {
+            tick,
+            peer_id,
+            hash: hex(hash),
+        }),
+        Frame::EntityHash {
+            tick,
+            peer_id,
+            entity_id,
+            hash,
+        } => LiveEvent::EntityHash(EntityHashEntry {
+            tick,
+            peer_id,
+            entity_id,
+            hash: hex(hash),
+        }),
+        Frame::FieldHash {
+            tick,
+            peer_id,
+            entity_id,
+            field_name,
+            hash,
+            value,
+        } => LiveEvent::FieldHash(FieldHashEntry {
+            tick,
+            peer_id,
+            entity_id,
+            field_name,
+            hash: hex(hash),
+            value_hex: value.iter().map(|b| format!("{b:02x}")).collect(),
+        }),
+        Frame::Snapshot { tick, .. } => LiveEvent::Snapshot { tick },
+        Frame::Metadata { .. } => LiveEvent::Metadata,
+        Frame::EndOfStream => LiveEvent::EndOfStream,
+    }
 }
 
 pub fn load(path: &Path) -> Result<SessionData, LoadError> {

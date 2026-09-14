@@ -52,6 +52,9 @@ body{
   border:1px solid var(--border); font-size:11.5px; color:var(--text-dim);
 }
 .dot{width:6px; height:6px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent);}
+.dot.live{background:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); animation:pulse 1.4s ease-in-out infinite;}
+.dot.disconnected{background:var(--text-faint); box-shadow:none;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
 .btn{
   font-family:var(--sans); font-size:12px; font-weight:500; color:var(--text-dim);
   background:var(--surface-2); border:1px solid var(--border); border-radius:6px;
@@ -162,7 +165,8 @@ body{
     <div class="sep"></div>
     <div class="session-meta" id="sessionMeta"><span style="color:var(--text-faint)">no session open</span></div>
     <div class="topbar-spacer"></div>
-    <div class="status-pill"><span class="dot" aria-hidden="true"></span> offline replay</div>
+    <div class="status-pill" id="statusPill"><span class="dot" id="statusDot" aria-hidden="true"></span> <span id="statusLabel">offline replay</span></div>
+    <button class="btn" id="connectLiveBtn" type="button" disabled>Connect live…</button>
     <button class="btn" id="openBtn" type="button">Open session…</button>
   </div>
 
@@ -170,7 +174,7 @@ body{
 
   <div id="emptyState" class="empty-state">
     <div class="big">No session open</div>
-    <div>Drag a <code>.foldback</code> file onto this window, or open one, to inspect its tick timeline and any divergence.</div>
+    <div>Drag a <code>.foldback</code> file onto this window, open one, or connect to a running game's live session.</div>
     <button class="btn" id="openBtn2" type="button">Open session…</button>
   </div>
 
@@ -213,13 +217,20 @@ body{
 const { invoke } = window.__TAURI__.core;
 const { open } = window.__TAURI__.dialog;
 
-let session = null;      // raw SessionData from backend
+let session = null;      // raw SessionData from backend (or a live-built equivalent)
 let byTick = new Map();  // tick -> Map(peer_id -> hash)
 let entityByTick = new Map();
 let fieldByTick = new Map();
 let selectedTick = null;
+let isLive = false;      // true while a live-event stream is being applied to `session`
+let followLatest = true; // live mode only: keep selectedTick pinned to the newest tick
 
 function hexShort(h){ return h.length > 12 ? h.slice(0,6) + '…' + h.slice(-4) : h; }
+
+function setStatus(kind, label){
+  document.getElementById('statusDot').className = 'dot' + (kind ? ' ' + kind : '');
+  document.getElementById('statusLabel').textContent = label;
+}
 
 async function openSession(){
   const path = await open({
@@ -232,6 +243,7 @@ async function openSession(){
 
 async function loadPath(path){
   hideError();
+  isLive = false; // stop applying any still-arriving live events to this session
   try {
     session = await invoke('load_session', { path });
   } catch (e) {
@@ -242,7 +254,107 @@ async function loadPath(path){
   selectedTick = session.divergence_tick ?? session.max_tick;
   document.getElementById('emptyState').hidden = true;
   document.getElementById('loadedView').hidden = false;
+  setStatus('', 'offline replay');
   render();
+}
+
+// A fresh, empty `session` shaped exactly like `load_session`'s output,
+// for live mode to fill in incrementally as `live-event`s arrive — keeps
+// `render()` and friends agnostic to whether the data came from a file
+// all at once or a stream one frame at a time.
+function emptyLiveSession(url){
+  return {
+    file_name: url, tick_rate_hz: 0, peer_count: 0, build_id: '',
+    min_tick: 0, max_tick: 0, ended_cleanly: false,
+    tick_hashes: [], entity_hashes: [], field_hashes: [],
+    snapshot_ticks: [], metadata_count: 0, divergence_tick: null,
+  };
+}
+
+async function connectLive(){
+  const url = window.prompt('Live session URL', 'ws://127.0.0.1:9871');
+  if (!url) return;
+  hideError();
+
+  // Set up live state *before* invoking connect_live, not after awaiting
+  // it: the Rust command emits `hello` synchronously, before it returns
+  // — over the IPC event channel, which can deliver to this page before
+  // the invoke() promise itself resolves. Flipping `isLive`/`session`
+  // only after the await let that hello arrive while `applyLiveEvent`'s
+  // `!isLive` guard was still true, silently dropping it (found by
+  // actually connecting and watching tick rate/peers stay at 0).
+  session = emptyLiveSession(url);
+  byTick = new Map();
+  entityByTick = new Map();
+  fieldByTick = new Map();
+  selectedTick = 0;
+  isLive = true;
+  followLatest = true;
+  document.getElementById('emptyState').hidden = true;
+  document.getElementById('loadedView').hidden = false;
+  setStatus('live', 'live — connecting…');
+  render();
+
+  try {
+    await invoke('connect_live', { url });
+  } catch (e) {
+    isLive = false;
+    showError(typeof e === 'string' ? e : JSON.stringify(e));
+    setStatus('disconnected', 'live — failed to connect');
+  }
+}
+
+function applyLiveEvent(p){
+  if (!isLive || !session) return; // stray event after switching to a file, or before connect
+  switch (p.kind){
+    case 'Hello':
+      session.tick_rate_hz = p.tick_rate_hz;
+      session.peer_count = p.peer_count;
+      session.build_id = p.build_id;
+      setStatus('live', 'live — connected');
+      renderTopbar();
+      break;
+    case 'TickHash':
+      session.tick_hashes.push(p);
+      if (!byTick.has(p.tick)) byTick.set(p.tick, new Map());
+      byTick.get(p.tick).set(p.peer_id, p.hash);
+      session.min_tick = Math.min(session.min_tick, p.tick);
+      session.max_tick = Math.max(session.max_tick, p.tick);
+      if (session.divergence_tick == null && tickAgrees(p.tick) === false){
+        session.divergence_tick = p.tick;
+      }
+      if (followLatest) selectedTick = session.max_tick;
+      render();
+      break;
+    case 'EntityHash':
+      session.entity_hashes.push(p);
+      if (!entityByTick.has(p.tick)) entityByTick.set(p.tick, []);
+      entityByTick.get(p.tick).push(p);
+      if (selectedTick === p.tick) renderDrilldown();
+      break;
+    case 'FieldHash':
+      session.field_hashes.push(p);
+      if (!fieldByTick.has(p.tick)) fieldByTick.set(p.tick, []);
+      fieldByTick.get(p.tick).push(p);
+      if (selectedTick === p.tick) renderDrilldown();
+      break;
+    case 'Snapshot':
+      session.snapshot_ticks.push(p.tick);
+      renderTimeline();
+      break;
+    case 'Metadata':
+      session.metadata_count += 1;
+      renderSessionHint();
+      break;
+    case 'EndOfStream':
+      session.ended_cleanly = true;
+      renderSessionHint();
+      break;
+    case 'Disconnected':
+      isLive = false;
+      setStatus('disconnected', `live — disconnected (${p.reason})`);
+      break;
+  }
 }
 
 function index(s){
@@ -520,6 +632,7 @@ function drawTimeline(){
 
 function selectTick(tick){
   selectedTick = Math.max(session.min_tick, Math.min(session.max_tick, tick));
+  if (isLive) followLatest = false; // manual scrub takes over from auto-follow
   render();
 }
 
@@ -533,6 +646,7 @@ document.getElementById('timeline').addEventListener('click', e => {
 
 document.getElementById('openBtn').addEventListener('click', openSession);
 document.getElementById('openBtn2').addEventListener('click', openSession);
+document.getElementById('connectLiveBtn').addEventListener('click', connectLive);
 window.addEventListener('resize', () => { if (session) drawTimeline(); });
 
 // Zero-config UX principle (foldback-plan.md §4.3): drag a .foldback file
@@ -543,6 +657,16 @@ window.__TAURI__.event.listen('tauri://drag-drop', (event) => {
   const paths = (event.payload && event.payload.paths) || [];
   const path = paths.find(p => p.toLowerCase().endsWith('.foldback')) || paths[0];
   if (path) loadPath(path);
+});
+
+// Live mode (protocol-spec.md §2): the Rust backend emits one of these
+// per hello/frame/disconnect after a successful connect_live() call.
+// `listen()` is itself async — the button stays disabled until this
+// registration actually completes, so there's no window where a user
+// could invoke connect_live() before the listener exists to catch the
+// hello it emits synchronously before returning.
+window.__TAURI__.event.listen('live-event', (event) => applyLiveEvent(event.payload)).then(() => {
+  document.getElementById('connectLiveBtn').disabled = false;
 });
 </script>
 </body>

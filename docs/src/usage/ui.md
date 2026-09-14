@@ -1,6 +1,6 @@
 # UI Guide
 
-`foldback-ui` is a Tauri desktop app for inspecting a `.foldback` session file — offline replay only in v1 (live mode is Phase 2).
+`foldback-ui` is a Tauri desktop app for inspecting a `.foldback` session — a recorded file, or a running game connected live.
 
 Run it from a checkout with:
 
@@ -10,9 +10,10 @@ cargo run -p foldback-ui
 
 ## Opening a session
 
-Two ways, same result:
+Three ways:
 - **Drag a `.foldback` file onto the window** — no dialog, no setup.
 - Click **Open session…** and pick a file.
+- Click **Connect live…** and give it a game's live-mode URL (defaults to `ws://127.0.0.1:9871`) — see [Cookbook recipe 7](../cookbook/README.md#7-live-mode) for embedding the server side in your game. The same timeline/peer-comparison/drill-down views below fill in as frames arrive; the timeline auto-follows the latest tick until you scrub manually. A disconnect (the game exits, or the connection drops) is shown in the status pill with the real reason — whatever streamed in stays inspectable, nothing is discarded.
 
 ## What you're looking at
 
