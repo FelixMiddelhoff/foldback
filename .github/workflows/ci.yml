@@ -32,11 +32,42 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
 
-  # determinism: cross-platform (incl. ARM64) hash-equality job — added once
-  # foldback-core has real hashing code. Per foldback-ci-release-plan.md §4.2,
-  # a failure here is a release blocker, never a flaky-retry candidate.
+  # Cross-platform (incl. ARM64) hash-equality job, per
+  # foldback-ci-release-plan.md §4.2 and foldback-testing-plan.md §1.4: the
+  # `hash::tests::known_vectors` test asserts a fixed input hashes to a
+  # pinned constant, so running it on every OS/arch here *is* the
+  # cross-platform byte-identical-hash assertion. Also runs the same test
+  # at opt-level 0 and 3 to catch compiler-introduced non-determinism in
+  # the hashing path itself (FMA contraction, float codegen differences —
+  # see poncelet-planning/writing/blog-bitexact-fma-hunt.md for the bug
+  # class this guards against), independent of the game's own code.
   #
-  # cli-golden: golden-file tests against checked-in fixtures — added once
-  # foldback-cli has real commands to test.
+  # Per §4.2: a failure here is a release blocker, never a flaky-retry
+  # candidate — this is the one job that, if ever skipped "just this
+  # once," undermines the entire product's premise.
+  determinism:
+    name: determinism (${{ matrix.os }})
+    needs: fmt-and-lint
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, ubuntu-24.04-arm, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: known vectors at opt-level 0
+        run: cargo test -p foldback-core hash::tests::known_vectors
+        env:
+          RUSTFLAGS: "-C opt-level=0"
+      - name: known vectors at opt-level 3
+        run: cargo test -p foldback-core hash::tests::known_vectors
+        env:
+          RUSTFLAGS: "-C opt-level=3"
+
+  # cli-golden: golden-file tests against checked-in fixtures already run
+  # as part of `core-test`'s `cargo test --workspace` (crates/foldback-cli
+  # /tests/golden.rs) — no separate job needed while that stays fast
+  # enough to live in the fast loop.
   #
   # ui-unit: Vitest component tests — added once foldback-ui exists.

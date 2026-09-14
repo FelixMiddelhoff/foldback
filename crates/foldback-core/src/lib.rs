@@ -1,14 +1,19 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! `foldback-core` — hashing, session file format, and the Level 1
+//! bisection engine. See `foldback-plan.md` §3 for the design this
+//! implements and `foldback-protocol-spec.md` for the wire formats.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod bisect;
+pub mod error;
+pub mod format;
+pub mod hash;
+pub mod ring_buffer;
+pub mod session;
+pub mod snapshot;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub use error::Error;
+
+pub mod prelude {
+    pub use crate::bisect::DivergenceTick;
+    pub use crate::session::{PendingHash, Session, SessionBuilder};
+    pub use crate::Error;
 }

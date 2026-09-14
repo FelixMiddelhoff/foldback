@@ -1,0 +1,8 @@
+[package]
+name = "minimal-rust"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+foldback-core = { path = "../../crates/foldback-core" }
