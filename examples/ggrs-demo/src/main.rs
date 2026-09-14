@@ -199,8 +199,39 @@ fn record_entity_and_field_hashes(
     }
 }
 
+/// Console visualization of both peers' confirmed positions, tick by
+/// tick — not part of the actual GGRS/hashing logic above (that's
+/// already complete and correct by the time this runs), purely so a
+/// screen recording of `cargo run -p ggrs-demo` looks like a real
+/// two-peer session running rather than a silent batch job, per
+/// foldback-marketing-plan.md §5's demo asset spec ("a visibly-running
+/// two-peer GGRS demo"). `--fast` (or `FOLDBACK_DEMO_FAST=1`) skips the
+/// per-tick delay, for anyone who just wants the `.foldback` file
+/// quickly rather than watching it.
+fn play_back_visibly(peer0: &[(u64, Vec<u8>)], peer1: &[(u64, Vec<u8>)], fast: bool) {
+    use std::time::Duration;
+
+    println!("\n=== Replaying the confirmed session, tick by tick ===\n");
+    for ((tick, bytes0), (_, bytes1)) in peer0.iter().zip(peer1.iter()) {
+        let [p0, _] = decode_players(bytes0);
+        let [p1, _] = decode_players(bytes1);
+        let status = if p0 == p1 { "MATCH" } else { "MISMATCH" };
+        println!(
+            "Tick {tick:>3}: P0=({:>4},{:>4})  P1=({:>4},{:>4})  {status}",
+            p0.0, p0.1, p1.0, p1.1
+        );
+        if !fast {
+            std::thread::sleep(Duration::from_millis(35));
+        }
+    }
+    println!();
+}
+
 fn main() {
     println!("=== Foldback ggrs-demo ===\n");
+
+    let fast = std::env::args().any(|a| a == "--fast")
+        || std::env::var("FOLDBACK_DEMO_FAST").is_ok_and(|v| v == "1");
 
     let out_path = std::env::temp_dir().join("foldback-ggrs-demo.foldback");
     let mut recording = FoldbackSession::builder()
@@ -211,24 +242,30 @@ fn main() {
         .unwrap();
 
     println!("Running peer 0's GGRS session ({NUM_TICKS} ticks, clean)...");
+    let mut peer0_ticks = Vec::with_capacity(NUM_TICKS as usize);
     run_sim(None, |tick, bytes| {
         let hash = hash_bytes(&bytes);
         recording.record_peer_hash(tick, 0, hash).unwrap();
         if ENTITY_FIELD_WINDOW.contains(&tick) {
             record_entity_and_field_hashes(&mut recording, tick, 0, &bytes);
         }
+        peer0_ticks.push((tick, bytes));
     });
 
     println!(
         "Running peer 1's GGRS session ({NUM_TICKS} ticks, divergence injected at tick {DIVERGE_AT_TICK})..."
     );
+    let mut peer1_ticks = Vec::with_capacity(NUM_TICKS as usize);
     run_sim(Some(DIVERGE_AT_TICK), |tick, bytes| {
         let hash = hash_bytes(&bytes);
         recording.record_peer_hash(tick, 1, hash).unwrap();
         if ENTITY_FIELD_WINDOW.contains(&tick) {
             record_entity_and_field_hashes(&mut recording, tick, 1, &bytes);
         }
+        peer1_ticks.push((tick, bytes));
     });
+
+    play_back_visibly(&peer0_ticks, &peer1_ticks, fast);
 
     let divergence = recording.check_divergence();
     match divergence {
