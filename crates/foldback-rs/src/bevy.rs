@@ -93,7 +93,15 @@ where
             continue;
         };
         let child_path = join_path(field_name_prefix, name);
-        walk(session, tick, entity_id, &child_path, field, 1, &mut preview)?;
+        walk(
+            session,
+            tick,
+            entity_id,
+            &child_path,
+            field,
+            1,
+            &mut preview,
+        )?;
     }
     Ok(preview)
 }
@@ -122,7 +130,15 @@ fn walk(
                 };
                 let name = s.name_at(i).unwrap_or("?");
                 let child_path = join_path(path, name);
-                walk(session, tick, entity_id, &child_path, field, depth + 1, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    field,
+                    depth + 1,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -132,7 +148,15 @@ fn walk(
                     continue;
                 };
                 let child_path = format!("{path}.{i}");
-                walk(session, tick, entity_id, &child_path, field, depth + 1, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    field,
+                    depth + 1,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -142,7 +166,15 @@ fn walk(
                     continue;
                 };
                 let child_path = format!("{path}.{i}");
-                walk(session, tick, entity_id, &child_path, field, depth + 1, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    field,
+                    depth + 1,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -152,14 +184,30 @@ fn walk(
             // *containers*, not ordered ones) — no sort needed here.
             for (i, item) in l.iter().enumerate() {
                 let child_path = format!("{path}[{i}]");
-                walk(session, tick, entity_id, &child_path, item, depth + 1, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    item,
+                    depth + 1,
+                    preview,
+                )?;
             }
             Ok(())
         }
         ReflectRef::Array(a) => {
             for (i, item) in a.iter().enumerate() {
                 let child_path = format!("{path}[{i}]");
-                walk(session, tick, entity_id, &child_path, item, depth + 1, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    item,
+                    depth + 1,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -169,14 +217,20 @@ fn walk(
             // rendered key text before hashing — same requirement
             // `foldback_core::hashable`'s `FieldBytes` impls enforce for
             // the manual API's own `HashMap`/`HashSet` fields.
-            let mut entries: Vec<(String, &dyn PartialReflect)> = m
-                .iter()
-                .map(|(k, v)| (format!("{k:?}"), v))
-                .collect();
+            let mut entries: Vec<(String, &dyn PartialReflect)> =
+                m.iter().map(|(k, v)| (format!("{k:?}"), v)).collect();
             entries.sort_by(|a, b| a.0.cmp(&b.0));
             for (key_text, val) in entries {
                 let child_path = format!("{path}[{key_text}]");
-                walk(session, tick, entity_id, &child_path, val, depth + 1, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    val,
+                    depth + 1,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -186,7 +240,15 @@ fn walk(
             items.sort_by(|a, b| a.0.cmp(&b.0));
             for (item_text, item) in items {
                 let child_path = format!("{path}{{{item_text}}}");
-                walk(session, tick, entity_id, &child_path, item, depth + 1, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    item,
+                    depth + 1,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -196,7 +258,13 @@ fn walk(
             // stable across compilers/platforms, unlike a raw tag byte.
             let variant_path = format!("{path}::{}", e.variant_name());
             let variant_field = format!("{variant_path}#variant");
-            let hash = record(session, tick, entity_id, &variant_field, e.variant_name().as_bytes())?;
+            let hash = record(
+                session,
+                tick,
+                entity_id,
+                &variant_field,
+                e.variant_name().as_bytes(),
+            )?;
             preview.push((variant_field, hash));
             for i in 0..e.field_len() {
                 let Some(field) = e.field_at(i) else {
@@ -207,7 +275,15 @@ fn walk(
                     .map(str::to_string)
                     .unwrap_or_else(|| i.to_string());
                 let child_path = format!("{variant_path}.{field_label}");
-                walk(session, tick, entity_id, &child_path, field, depth + 1, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    field,
+                    depth + 1,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -268,7 +344,13 @@ fn hash_leaf(
         return Ok(());
     }
 
-    let hash = record(session, tick, entity_id, path, format!("{leaf:?}").as_bytes())?;
+    let hash = record(
+        session,
+        tick,
+        entity_id,
+        path,
+        format!("{leaf:?}").as_bytes(),
+    )?;
     preview.push((path.to_string(), hash));
     Ok(())
 }
@@ -386,7 +468,9 @@ mod tests {
         let frames = hash_and_read_back(|session| {
             hash_reflected(session, 0, 0, "unit", &unit).unwrap();
         });
-        assert!(field_names(&frames).iter().all(|n| !n.contains("debug_label")));
+        assert!(field_names(&frames)
+            .iter()
+            .all(|n| !n.contains("debug_label")));
     }
 
     #[test]
@@ -559,6 +643,9 @@ mod tests {
         let value = Root { inner: d9 };
         let mut session = Session::builder().peer_count(1).build().unwrap();
         let err = hash_reflected(&mut session, 0, 0, "r", &value).unwrap_err();
-        assert!(matches!(err, foldback_core::Error::ReflectionDepthExceeded { .. }));
+        assert!(matches!(
+            err,
+            foldback_core::Error::ReflectionDepthExceeded { .. }
+        ));
     }
 }

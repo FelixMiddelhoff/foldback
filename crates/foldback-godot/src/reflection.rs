@@ -142,7 +142,9 @@ fn walk(
                     "reflective hash walk found a reference cycle at '{path}'"
                 ));
             }
-            let result = walk_object(session, tick, entity_id, path, &obj, depth, visited, preview);
+            let result = walk_object(
+                session, tick, entity_id, path, &obj, depth, visited, preview,
+            );
             visited.remove(&id);
             result
         }
@@ -150,7 +152,16 @@ fn walk(
             let arr: VarArray = value.to();
             for (i, item) in arr.iter_shared().enumerate() {
                 let child_path = format!("{path}[{i}]");
-                walk(session, tick, entity_id, &child_path, &item, depth + 1, visited, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    &item,
+                    depth + 1,
+                    visited,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -161,7 +172,16 @@ fn walk(
             let dict: VarDictionary = value.to();
             for (key, val) in dict.iter_shared() {
                 let child_path = format!("{path}[{}]", key.stringify());
-                walk(session, tick, entity_id, &child_path, &val, depth + 1, visited, preview)?;
+                walk(
+                    session,
+                    tick,
+                    entity_id,
+                    &child_path,
+                    &val,
+                    depth + 1,
+                    visited,
+                    preview,
+                )?;
             }
             Ok(())
         }
@@ -190,7 +210,16 @@ fn walk_object(
         let prop_name = StringName::from(name.as_str());
         let value = obj.get(&prop_name);
         let child_path = format!("{path}.{name}");
-        walk(session, tick, entity_id, &child_path, &value, depth + 1, visited, preview)?;
+        walk(
+            session,
+            tick,
+            entity_id,
+            &child_path,
+            &value,
+            depth + 1,
+            visited,
+            preview,
+        )?;
     }
     Ok(())
 }
@@ -249,10 +278,22 @@ fn leaf_bytes(value: &Variant) -> Vec<u8> {
         return [v.x.to_le_bytes(), v.y.to_le_bytes(), v.z.to_le_bytes()].concat();
     }
     if let Ok(v) = value.try_to::<Vector4>() {
-        return [v.x.to_le_bytes(), v.y.to_le_bytes(), v.z.to_le_bytes(), v.w.to_le_bytes()].concat();
+        return [
+            v.x.to_le_bytes(),
+            v.y.to_le_bytes(),
+            v.z.to_le_bytes(),
+            v.w.to_le_bytes(),
+        ]
+        .concat();
     }
     if let Ok(v) = value.try_to::<Color>() {
-        return [v.r.to_le_bytes(), v.g.to_le_bytes(), v.b.to_le_bytes(), v.a.to_le_bytes()].concat();
+        return [
+            v.r.to_le_bytes(),
+            v.g.to_le_bytes(),
+            v.b.to_le_bytes(),
+            v.a.to_le_bytes(),
+        ]
+        .concat();
     }
 
     value.stringify().to_string().into_bytes()

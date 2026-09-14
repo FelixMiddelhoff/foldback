@@ -95,9 +95,7 @@ fn bench_hashing(c: &mut Criterion) {
                 let mut session = Session::builder().peer_count(1).build().unwrap();
                 b.iter(|| {
                     for (id, unit) in explicit_units.iter().enumerate() {
-                        session
-                            .hash_fields(0, id as u64, black_box(unit))
-                            .unwrap();
+                        session.hash_fields(0, id as u64, black_box(unit)).unwrap();
                     }
                 });
             },

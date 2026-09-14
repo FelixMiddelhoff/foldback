@@ -85,11 +85,8 @@ mod panel {
         #[test]
         fn renders_a_frame_without_panicking() {
             let ctx = Context::default();
-            let preview = ReflectionPreview::new(
-                7,
-                42,
-                vec![("unit.pos.x".to_string(), 0xdead_beef_u64)],
-            );
+            let preview =
+                ReflectionPreview::new(7, 42, vec![("unit.pos.x".to_string(), 0xdead_beef_u64)]);
             let mut output = ctx.run_ui(Default::default(), |ui| {
                 render(ui.ctx(), &preview);
             });

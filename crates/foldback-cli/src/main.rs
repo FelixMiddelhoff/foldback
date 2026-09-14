@@ -60,7 +60,10 @@ fn run_lint(engine: Engine, path: &Path) -> ExitCode {
     let Engine::Bevy = engine;
     match lint::scan_bevy(path) {
         Ok(types) if types.is_empty() => {
-            println!("no #[derive(FoldbackHash)] types found under {}", path.display());
+            println!(
+                "no #[derive(FoldbackHash)] types found under {}",
+                path.display()
+            );
             ExitCode::SUCCESS
         }
         Ok(types) => {

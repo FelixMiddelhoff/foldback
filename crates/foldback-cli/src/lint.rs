@@ -152,9 +152,9 @@ fn derives_foldback_hash(attrs: &[syn::Attribute]) -> bool {
         if !attr.path().is_ident("derive") {
             continue;
         }
-        let Ok(paths) =
-            attr.parse_args_with(syn::punctuated::Punctuated::<syn::Path, syn::Token![,]>::parse_terminated)
-        else {
+        let Ok(paths) = attr.parse_args_with(
+            syn::punctuated::Punctuated::<syn::Path, syn::Token![,]>::parse_terminated,
+        ) else {
             continue;
         };
         if paths.iter().any(|p| p.is_ident("FoldbackHash")) {

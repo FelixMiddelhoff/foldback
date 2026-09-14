@@ -121,7 +121,10 @@ impl<T: FieldBytes + Ord> FieldBytes for HashSet<T> {
     fn field_bytes(&self) -> Vec<u8> {
         let mut items: Vec<&T> = self.iter().collect();
         items.sort();
-        items.into_iter().flat_map(FieldBytes::field_bytes).collect()
+        items
+            .into_iter()
+            .flat_map(FieldBytes::field_bytes)
+            .collect()
     }
 }
 
@@ -129,7 +132,10 @@ impl<T: FieldBytes + Ord> FieldBytes for BTreeSet<T> {
     fn field_bytes(&self) -> Vec<u8> {
         let mut items: Vec<&T> = self.iter().collect();
         items.sort();
-        items.into_iter().flat_map(FieldBytes::field_bytes).collect()
+        items
+            .into_iter()
+            .flat_map(FieldBytes::field_bytes)
+            .collect()
     }
 }
 
