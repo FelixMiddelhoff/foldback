@@ -167,6 +167,7 @@ body{
     <div class="topbar-spacer"></div>
     <div class="status-pill" id="statusPill"><span class="dot" id="statusDot" aria-hidden="true"></span> <span id="statusLabel">offline replay</span></div>
     <button class="btn" id="connectLiveBtn" type="button" disabled>Connect live…</button>
+    <button class="btn" id="disconnectLiveBtn" type="button" hidden>Disconnect</button>
     <button class="btn" id="openBtn" type="button">Open session…</button>
   </div>
 
@@ -232,6 +233,10 @@ function setStatus(kind, label){
   document.getElementById('statusLabel').textContent = label;
 }
 
+function setDisconnectVisible(visible){
+  document.getElementById('disconnectLiveBtn').hidden = !visible;
+}
+
 async function openSession(){
   const path = await open({
     multiple: false,
@@ -244,6 +249,7 @@ async function openSession(){
 async function loadPath(path){
   hideError();
   isLive = false; // stop applying any still-arriving live events to this session
+  setDisconnectVisible(false);
   try {
     session = await invoke('load_session', { path });
   } catch (e) {
@@ -293,6 +299,7 @@ async function connectLive(){
   document.getElementById('emptyState').hidden = true;
   document.getElementById('loadedView').hidden = false;
   setStatus('live', 'live — connecting…');
+  setDisconnectVisible(true);
   render();
 
   try {
@@ -301,7 +308,20 @@ async function connectLive(){
     isLive = false;
     showError(typeof e === 'string' ? e : JSON.stringify(e));
     setStatus('disconnected', 'live — failed to connect');
+    setDisconnectVisible(false);
   }
+}
+
+async function disconnectLive(){
+  try {
+    await invoke('disconnect_live');
+  } catch (e) {
+    showError(typeof e === 'string' ? e : JSON.stringify(e));
+  }
+  // The backend-side shutdown drives the background thread's read loop
+  // to a `Disconnected` live-event on its own (see live.rs) — that event
+  // is what actually flips `isLive`/status, same as a game-initiated
+  // close, so there's nothing more to update here.
 }
 
 function applyLiveEvent(p){
@@ -353,6 +373,7 @@ function applyLiveEvent(p){
     case 'Disconnected':
       isLive = false;
       setStatus('disconnected', `live — disconnected (${p.reason})`);
+      setDisconnectVisible(false);
       break;
   }
 }
@@ -647,6 +668,7 @@ document.getElementById('timeline').addEventListener('click', e => {
 document.getElementById('openBtn').addEventListener('click', openSession);
 document.getElementById('openBtn2').addEventListener('click', openSession);
 document.getElementById('connectLiveBtn').addEventListener('click', connectLive);
+document.getElementById('disconnectLiveBtn').addEventListener('click', disconnectLive);
 window.addEventListener('resize', () => { if (session) drawTimeline(); });
 
 // Zero-config UX principle (foldback-plan.md §4.3): drag a .foldback file

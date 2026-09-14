@@ -18,7 +18,12 @@ fn load_session(path: String) -> Result<SessionData, session::LoadError> {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![load_session, live::connect_live])
+        .manage(live::LiveConnection::default())
+        .invoke_handler(tauri::generate_handler![
+            load_session,
+            live::connect_live,
+            live::disconnect_live
+        ])
         .run(tauri::generate_context!())
         .expect("error while running foldback-ui");
 }
