@@ -6,7 +6,21 @@
 
 Verified against the real, built native library (not just compiled): a standalone .NET console harness (`bindings/unity/Tests~/FoldbackSys.Tests`, a `Tests~` folder — Unity's own convention for "ignore during asset import") P/Invokes the actual `foldback_sys` binary and asserts real behavior — struct marshaling, divergence detection, `finish()` agreement/disagreement across two sessions, file recording, and error handling all pass against real native code.
 
-**Known, deliberate gap, not silently dropped**: the IL2CPP AOT build-and-run CI leg that the risk register (P1, platform/FFI risks) calls a hard requirement for calling this phase done needs an actual Unity Editor install with the IL2CPP module — not available in the environment this binding was built in. The P/Invoke surface was designed conservatively with IL2CPP's known restrictions in mind regardless (simple `[DllImport]` signatures, no automatic string/array marshaling attributes on the config struct — a hand-managed native UTF-8 buffer instead, see `Runtime/FoldbackNative.cs`'s comments), but that design choice is unverified against real IL2CPP until someone with Unity installed adds the CI leg. Level 2/3 (entity/field) hashing across this FFI boundary is a second, separate deliberate gap — `foldback-sys` itself doesn't expose it yet.
+**IL2CPP AOT — verified locally, CI leg not yet proven in CI.** `examples/unity-demo` is a real Unity project (`Assets/Il2cppVerify.cs`) referencing `com.foldback.unity` as a real package dependency, built as a Standalone Windows IL2CPP player and actually run — not just compiled. With a real Unity 6000.6.0f1 + Windows Build Support (IL2CPP) install, `BuildScript.BuildIl2Cpp` produced a working IL2CPP player, and running it printed:
+
+```
+ok   - hash_tick produces exactly one pending hash
+ok   - mismatched peer hashes detected as divergence at the correct tick
+ok   - two identical runs' finish() values agree
+ok   - a diverging run's finish() value disagrees
+PASS
+```
+
+— the P/Invoke surface's conservative design (simple `[DllImport]` signatures, no automatic string/array marshaling attributes on the config struct — a hand-managed native UTF-8 buffer instead, see `Runtime/FoldbackNative.cs`'s comments) genuinely survives real IL2CPP AOT compilation, not just in theory.
+
+The CI job `bindings-unity-il2cpp` (`.github/workflows/ci.yml`) codifies this exact sequence for regression protection, but is honestly unverified-in-CI as of this writing: it needs `UNITY_EMAIL`/`UNITY_PASSWORD`/`UNITY_SERIAL` repository secrets for a Unity license (only a maintainer with a Unity account can add these — same class of gap as the UI's code-signing secrets), and its first real run hasn't happened yet to confirm the exact `buildalon/unity-setup`/`activate-unity-license` invocation works unattended the way the manual local run did. Once those secrets exist and the job goes green once, this becomes a fully closed Phase-3 "definition of done" item per the risk register (P1); until then, treat the *binding* as proven and the *CI automation* as a good-faith implementation awaiting its first real run.
+
+Level 2/3 (entity/field) hashing across this FFI boundary is a second, separate deliberate gap — `foldback-sys` itself doesn't expose it yet.
 
 ## Who this is for
 

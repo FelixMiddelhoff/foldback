@@ -5,3 +5,16 @@
 crates/foldback-ui/gen/
 bindings/unity/Tests~/FoldbackSys.Tests/bin/
 bindings/unity/Tests~/FoldbackSys.Tests/obj/
+
+# examples/unity-demo — standard Unity-generated project directories, plus
+# the native library CI/local builds copy in before an IL2CPP build (never
+# committed, see bindings/unity's own README for why).
+examples/unity-demo/Library/
+examples/unity-demo/Build/
+examples/unity-demo/Logs/
+examples/unity-demo/UserSettings/
+examples/unity-demo/obj/
+examples/unity-demo/*.csproj
+examples/unity-demo/*.sln
+examples/unity-demo/*.slnx
+examples/unity-demo/Assets/Plugins/

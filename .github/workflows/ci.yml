@@ -86,12 +86,8 @@ jobs:
   # binding's own P/Invoke harness (bindings/unity/Tests~/FoldbackSys.Tests)
   # against it — proves the C# struct marshaling/error handling actually
   # works against real compiled native code, not just that the C# compiles.
-  # NOT the IL2CPP CI leg the risk register (P1) calls a Phase-3
-  # "definition of done" requirement — that needs an actual Unity Editor
-  # install with the IL2CPP module, which this job deliberately doesn't
-  # attempt (a real, currently-open gap, not silently dropped — see
-  # docs/src/integrations/unity.md). This job runs the Mono-equivalent .NET
-  # P/Invoke path only.
+  # This is the plain .NET (Mono-equivalent) P/Invoke path — see
+  # bindings-unity-il2cpp below for the actual Unity IL2CPP AOT leg.
   bindings-unity-cs:
     name: bindings/unity C# harness (${{ matrix.os }})
     needs: fmt-and-lint
@@ -119,6 +115,62 @@ jobs:
         run: cp target/debug/foldback_sys.dll bindings/unity/Tests~/FoldbackSys.Tests/bin/Release/net8.0/
         shell: bash
       - run: dotnet bindings/unity/Tests~/FoldbackSys.Tests/bin/Release/net8.0/FoldbackSys.Tests.dll
+
+  # The IL2CPP CI leg the risk register (P1) names as a Phase-3 "definition
+  # of done" requirement — an actual Unity Editor, with the Windows Build
+  # Support (IL2CPP) module, building and running examples/unity-demo
+  # (Assets/Il2cppVerify.cs runs the same checks as the C# harness above,
+  # but inside a real IL2CPP AOT player, which the Editor's own Mono
+  # runtime never exercises). Locally proven working end to end on a real
+  # Unity 6000.6.0f1 + IL2CPP install before this job was written (build
+  # succeeded, the built player ran and printed PASS) — this job codifies
+  # that exact sequence for CI, but hasn't itself completed a real run yet:
+  # it needs `UNITY_EMAIL`/`UNITY_PASSWORD`/`UNITY_SERIAL` (or
+  # `UNITY_LICENSE`) repository secrets for a Unity license, which only a
+  # maintainer with a Unity account can add (see foldback-ci-release-plan.md
+  # §4.5's "secrets set up once, referenced by name" pattern) — treat this
+  # job as unverified-in-CI until its first real run confirms both the
+  # license activation and the `buildalon/unity-setup` invocation below.
+  bindings-unity-il2cpp:
+    name: bindings/unity IL2CPP player (windows-latest)
+    needs: fmt-and-lint
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p foldback-sys
+      - name: Stage the native library where the Unity project expects it
+        shell: bash
+        run: |
+          mkdir -p examples/unity-demo/Assets/Plugins/x86_64
+          cp target/debug/foldback_sys.dll examples/unity-demo/Assets/Plugins/x86_64/
+      - uses: buildalon/unity-setup@v1
+        with:
+          unity-version: "6000.6.0f1"
+          modules: windows-il2cpp
+      - uses: buildalon/activate-unity-license@v1
+        with:
+          username: ${{ secrets.UNITY_EMAIL }}
+          password: ${{ secrets.UNITY_PASSWORD }}
+          serial: ${{ secrets.UNITY_SERIAL }}
+      - name: Build the IL2CPP player
+        shell: bash
+        run: |
+          "$UNITY_EDITOR_PATH" -batchmode -nographics -quit \
+            -projectPath examples/unity-demo \
+            -executeMethod BuildScript.BuildIl2Cpp \
+            -logFile examples/unity-demo/build.log
+          cat examples/unity-demo/build.log
+      - name: Run the IL2CPP player and check the result
+        shell: bash
+        env:
+          FOLDBACK_IL2CPP_RESULT_PATH: examples/unity-demo/il2cpp-result.txt
+        run: |
+          examples/unity-demo/Build/FoldbackIl2CppTest.exe -batchmode -nographics -silent-crashes \
+            -logFile examples/unity-demo/run.log
+          cat examples/unity-demo/il2cpp-result.txt
+          grep -q "^PASS$" examples/unity-demo/il2cpp-result.txt
 
   # cli-golden: golden-file tests against checked-in fixtures already run
   # as part of `core-test`'s `cargo test --workspace` (crates/foldback-cli
