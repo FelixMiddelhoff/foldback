@@ -14,7 +14,7 @@ Each Rust recipe leaves out error handling you'd keep in real code (`Result` unw
 | 6 | [Reading a `.foldback` file programmatically](#6-reading-a-foldback-file-programmatically) | Frame reading: **shipped** (`foldback_core::format::FrameReader`). `bisect()` convenience wrapper: not yet built as shown |
 | 7 | [Live mode](#7-live-mode) | **Shipped** (Phase 2) — game side (`foldback_core::live::LiveServer`) and UI side (`foldback-ui`'s "Connect live…") both built and proven against each other |
 | 8 | [Unity integration](#8-unity-integration) | **Shipped** (`bindings/unity`, `HashTick`/`RecordPeerHash`/`TakePendingHashes`/`CheckDivergence`/`Finish`), Phase 3 — verified against the real native library via a .NET P/Invoke harness, *and* against a real IL2CPP AOT build (`examples/unity-demo`), both locally and in CI (`bindings-unity-il2cpp`, green on `windows-latest`) — closes the risk register's P1 "definition of done" requirement. One remaining named gap: Level 2/3 hashing isn't exposed across the FFI boundary yet. `[FoldbackHash]` reflection below is unbuilt, tracked separately as the reflective-hashing stretch |
-| 9 | [Godot integration](#9-godot-integration) | Planned, Phase 4 |
+| 9 | [Godot integration](#9-godot-integration) | **Shipped** (Phase 4) — `bindings/godot` (GDExtension via `gdext`), verified end to end against a real Godot 4.7.2 engine (headless) in CI |
 | 10 | [Annotating the timeline](#10-annotating-the-timeline) | `Metadata` frame exists in the file format; a convenience `session.annotate()` wrapper not yet built |
 
 ---
@@ -189,19 +189,23 @@ session.HashTick(tick, state);
 
 ## 9. Godot integration
 
-Not implemented yet (Phase 4).
-
 ```gdscript
 extends Node
 
-var session := FoldbackSession.new({"tick_rate_hz": 60, "peer_count": 2})
+var session := FoldbackSession.new()
+
+func _ready():
+    if not session.configure({"tick_rate_hz": 60, "peer_count": 2}):
+        push_error(session.get_last_error())
 
 func _physics_process(_delta):
     var state := serialize_deterministic_state()
     session.hash_tick(Engine.get_physics_frames(), state)
 ```
 
-GDExtension binding exposes the same core through a GDScript-native `FoldbackSession` class rather than raw FFI calls.
+GDExtension binding (`bindings/godot`) exposes the same core through a GDScript-native `FoldbackSession` class rather than raw FFI calls — built directly on `gdext` (godot-rust) rather than through `foldback-sys`'s C ABI, since `gdext` generates the GDExtension registration itself.
+
+Deviates from an earlier sketch of this recipe that passed the config dict straight to `.new()`: a GDExtension class's `.new()` calls its zero-argument `_init`, so there's no supported way to route extra constructor arguments through it. The real, verified shape is `.new()` then `.configure(dict) -> bool`, returning `false` and setting `get_last_error()` on failure rather than throwing. `u64` hashes cross into GDScript as `i64` via exact bit-reinterpretation (GDScript's only integer type) — a hash may print as negative, which is expected and harmless for equality-based divergence checks.
 
 ---
 

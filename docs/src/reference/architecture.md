@@ -30,13 +30,13 @@ Three independently useful layers, each shippable on its own:
 
 1. **Core library** (`foldback-core`, Rust) — hashing, snapshot storage, bisection algorithm, session file format. **Shipped, Phase 0.**
 2. **CLI** (`foldback-cli`) — thin binary over the core, produces text/JSON reports, drives CI failures. **Partially shipped** (`analyze`, `ci-check`; `record` deferred — see [CLI Reference](../usage/cli.md)).
-3. **UI** (`foldback-ui`, Tauri + web frontend) — visual timeline, drill-down diff view, live or replay mode. **Not started, Phase 1.**
+3. **UI** (`foldback-ui`, Tauri + web frontend) — visual timeline, drill-down diff view, live or replay mode. **Shipped, Phase 1** (live mode added Phase 2).
 
 Engine bindings sit outside the core repo boundary conceptually but ship from the same monorepo:
 
-- `foldback-sys` — raw C ABI header + Rust FFI crate (source of truth for the header, generated via `cbindgen`). Empty skeleton today; real surface lands Phase 3.
-- `foldback-rs` — idiomatic Rust wrapper, GGRS/Bevy integration helpers. Empty skeleton today; GGRS hook lands Phase 2.
-- Unity/Godot/Unreal bindings — not started; see their respective [integration pages](../integrations/rust-ggrs.md).
+- `foldback-sys` — raw C ABI header + Rust FFI crate (source of truth for the header, generated via `cbindgen`). **Shipped** (Level 1/2/3), Phase 3.
+- `foldback-rs` — idiomatic Rust wrapper, GGRS/Bevy integration helpers. **Shipped**, Phase 2.
+- Unity (`bindings/unity`) and Godot (`bindings/godot`) bindings — **shipped**, Phases 3–4. Unreal — not started; see their respective [integration pages](../integrations/rust-ggrs.md).
 
 ## Repo layout
 

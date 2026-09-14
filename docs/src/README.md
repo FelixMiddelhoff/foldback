@@ -35,8 +35,8 @@ If a peer's hash for a tick doesn't match, `session.check_divergence()` returns 
 | Engine | Status |
 |---|---|
 | [Rust / GGRS / Bevy](integrations/rust-ggrs.md) | Core API ships today; GGRS-specific hook is Phase 2 |
-| [Unity](integrations/unity.md) | Planned, Phase 3 |
-| [Godot](integrations/godot.md) | Planned, Phase 4 |
+| [Unity](integrations/unity.md) | **Shipped** (Phase 3) |
+| [Godot](integrations/godot.md) | **Shipped** (Phase 4) |
 | [Unreal Engine](integrations/unreal.md) | Planned, Phase 5 |
 
 ## Further down

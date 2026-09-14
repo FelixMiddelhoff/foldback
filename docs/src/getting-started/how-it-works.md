@@ -8,23 +8,25 @@ foldback-sys    C ABI over foldback-core, generated foldback.h (cbindgen)
 foldback-rs     idiomatic Rust wrapper + GGRS/Bevy helpers
 foldback-cli    the `foldback` binary: analyze, ci-check (record: planned)
 foldback-ui     Tauri app — timeline, peer comparison, bisection drill-down
-bindings/       Unity, Godot, Unreal — each wraps foldback-sys's C ABI
+bindings/       Unity (foldback-sys's C ABI), Godot (direct gdext), Unreal (planned)
 ```
 
-`foldback-core` is the only place the actual logic lives. Every other surface — the CLI, the UI, every engine binding — is a thin wrapper around it, so a bug fix or a bisection-engine improvement lands everywhere at once instead of needing to be ported four times.
+`foldback-core` is the only place the actual logic lives. Every other surface — the CLI, the UI, every engine binding — is a thin wrapper around it, so a bug fix or a bisection-engine improvement lands everywhere at once instead of needing to be ported four times. Godot's binding calls `foldback-core` directly through `gdext` rather than through `foldback-sys`'s C ABI, since `gdext` generates its own GDExtension registration — Unity and (when built) Unreal go through the C ABI because C#/C++ have no GDExtension-equivalent of their own.
 
-## What exists today (Phase 0)
+## What exists today (Phases 0–4)
 
-- `foldback-core`: xxHash3 hashing, the `.foldback` file format (read + write), a bounded retention ring buffer, zstd snapshot compression, and Level 1 (per-tick) bisection.
+- `foldback-core`: xxHash3 hashing, the `.foldback` file format (read + write), a bounded retention ring buffer, zstd snapshot compression, Level 1/2/3 (per-tick/entity/field) bisection, live-mode transport, and the `#[derive(FoldbackHash)]` opt-in field-hashing macro.
 - `foldback-cli`: `analyze` and `ci-check` subcommands, reading `.foldback` files.
-- `examples/minimal-rust`: a toy deterministic simulation proving the API end to end, no engine dependency.
+- `foldback-ui`: the Tauri app — offline timeline/peer-comparison/bisection drill-down, plus live mode (connect to a running game over a local WebSocket).
+- `foldback-rs`: GGRS bridge (`checksum`/`record_desync`).
+- `foldback-sys` + `bindings/unity`: a full C ABI (Level 1/2/3) and a real Unity UPM package, verified against IL2CPP AOT compilation in CI.
+- `bindings/godot`: a GDExtension addon (`gdext`), verified against a real headless Godot 4.7.2 engine in CI.
+- `examples/minimal-rust`, `examples/ggrs-demo`, `examples/live-demo`, `examples/unity-demo`, `examples/godot-demo`: real, runnable proof for each of the above, not just compiled code.
 
 ## What's planned next
 
-- **Docs site** (this site) — stood up now, filled in as each phase ships, not backfilled after the fact.
-- **Phase 1 — Foldback UI v1**: the Tauri app, reading `.foldback` files offline. Design is already fully decided — see the [UI mockup](https://claude.ai/code/artifact/98a136d1-d606-4d96-bc90-04e6fe74f292).
-- **Phase 2 — Rust/GGRS binding + Level 2/3 bisection**: per-entity and per-field hashing, live mode (a running game streaming to the UI over a local WebSocket).
-- **Phase 3–5 — Unity, Godot, Unreal bindings**, each via the stable C ABI.
+- **Phase 5 — Unreal binding**, via the same stable C ABI `bindings/unity` already uses.
+- **Ongoing**: auto/reflective hashing per binding, MVP/launch-gate items.
 
 Full roadmap and week-by-week reasoning: the project's own planning set (linked from [Project](../project/testing.md) pages) — this site tracks `main`, so it describes what's actually shipped, not the plan for what will be.
 

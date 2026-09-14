@@ -18,3 +18,11 @@ examples/unity-demo/*.csproj
 examples/unity-demo/*.sln
 examples/unity-demo/*.slnx
 examples/unity-demo/Assets/Plugins/
+
+# examples/godot-demo and bindings/godot — Godot's own generated project
+# cache, plus the compiled native library CI/local builds copy into the
+# addon's bin/ folder (never committed, same pattern as the Unity plugin
+# native libs above).
+examples/godot-demo/.godot/
+examples/godot-demo/addons/foldback/bin/
+bindings/godot/addons/foldback/bin/

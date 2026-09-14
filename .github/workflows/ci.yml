@@ -178,6 +178,87 @@ jobs:
           cat examples/unity-demo/il2cpp-result.txt
           grep -q "^PASS$" examples/unity-demo/il2cpp-result.txt
 
+  # Phase 4 — Godot binding (cookbook recipe 9). Builds the real
+  # foldback-godot cdylib, stages it into examples/godot-demo's GDExtension
+  # addon folder, then runs a real Godot engine (downloaded directly from
+  # the official godotengine/godot-builds release, same "verify the exact
+  # URL rather than trust a wrapper action" lesson bindings-unity-il2cpp
+  # learned the hard way) headlessly against test.gd — a straight-line
+  # GDScript exercising the full binding surface (Level 1 divergence
+  # detection, Level 2/3 recording round-tripped through a real .foldback
+  # file, finish() agreement/disagreement, the unconfigured-session error
+  # path) and printing "ALL PASS" only if every check passed. A first
+  # headless `--editor --quit` pass is required before the script run: the
+  # engine only discovers a project's .gdextension files while generating
+  # its own project cache (`.godot/extension_list.cfg`), which running
+  # `--script` directly, on a project the editor has never opened, skips
+  # silently — found locally the same way the IL2CPP leg's own gaps were
+  # found, by actually running it rather than assuming it would work.
+  bindings-godot:
+    name: bindings/godot headless verification (${{ matrix.os }})
+    needs: fmt-and-lint
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            godot_asset: Godot_v4.7.2-stable_linux.x86_64.zip
+            godot_bin: Godot_v4.7.2-stable_linux.x86_64
+            lib_src: target/debug/libfoldback_godot.so
+            lib_dst: libfoldback_godot.so
+          - os: windows-latest
+            godot_asset: Godot_v4.7.2-stable_win64.exe.zip
+            godot_bin: Godot_v4.7.2-stable_win64_console.exe
+            lib_src: target/debug/foldback_godot.dll
+            lib_dst: foldback_godot.dll
+          - os: macos-latest
+            godot_asset: Godot_v4.7.2-stable_macos.universal.zip
+            godot_bin: Godot.app/Contents/MacOS/Godot
+            lib_src: target/debug/libfoldback_godot.dylib
+            lib_dst: libfoldback_godot.dylib
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p foldback-godot
+      - name: Stage the native library into the addon's bin folder
+        shell: bash
+        run: |
+          mkdir -p examples/godot-demo/addons/foldback/bin
+          cp "${{ matrix.lib_src }}" "examples/godot-demo/addons/foldback/bin/${{ matrix.lib_dst }}"
+      - name: Cache the Godot engine download
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: godot-bin
+          key: godot-4.7.2-stable-${{ matrix.os }}
+      - name: Download Godot 4.7.2-stable
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p godot-bin
+          curl -fL -o godot-bin/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/${{ matrix.godot_asset }}"
+          cd godot-bin && unzip -q godot.zip
+      - name: Make the Godot binary executable
+        if: runner.os != 'Windows'
+        run: chmod +x "godot-bin/${{ matrix.godot_bin }}"
+      - name: Generate the project's GDExtension cache
+        shell: bash
+        # `--quit` after a headless editor pass reliably exits non-zero
+        # (observed locally too) even on a clean run — it's how this
+        # invocation reports "quit as requested," not a failure signal —
+        # so this step's job is only to produce `.godot/extension_list.cfg`
+        # for the next step to find, not to gate on the exit code.
+        run: |
+          "godot-bin/${{ matrix.godot_bin }}" --headless --editor --path examples/godot-demo --quit || true
+      - name: Run the headless verification script
+        shell: bash
+        run: |
+          "godot-bin/${{ matrix.godot_bin }}" --headless --path examples/godot-demo --script res://test.gd \
+            | tee godot-test-output.txt
+          grep -q "^ALL PASS$" godot-test-output.txt
+
   # cli-golden: golden-file tests against checked-in fixtures already run
   # as part of `core-test`'s `cargo test --workspace` (crates/foldback-cli
   # /tests/golden.rs) — no separate job needed while that stays fast

@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*", "examples/*"]
-exclude = ["examples/unity-demo"]
+exclude = ["examples/unity-demo", "examples/godot-demo"]
 
 [workspace.package]
 version = "0.0.1"

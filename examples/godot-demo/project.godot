@@ -1,0 +1,16 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are meant to be edited
+; through the editor interface.
+
+config_version=5
+
+[application]
+
+config/name="foldback-godot-demo"
+config/features=PackedStringArray("4.3")
+config/icon=""
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
