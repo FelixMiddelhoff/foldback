@@ -15,4 +15,4 @@ The validated hot-path cost (hash + ring-buffer handoff) is under 200µs even at
 So a newly-added non-deterministic field (a timestamp, a debug label) can never silently become a phantom divergence source. See [RFC-0003](project/rfcs/0003-field-hashing-opt-in.md).
 
 **Can I use this with Unity/Godot/Unreal today?**
-Unity and Godot, yes — see their [integration pages](integrations/unity.md). Unreal is still planned; see its [integration page](integrations/unreal.md) for target timeline.
+Yes to all three — see their integration pages: [Unity](integrations/unity.md), [Godot](integrations/godot.md), [Unreal](integrations/unreal.md). Unreal's reflective-hashing and Mass Entity integration are still to come; the core binding is shipped.

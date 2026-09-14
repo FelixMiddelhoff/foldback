@@ -26,3 +26,20 @@ examples/unity-demo/Assets/Plugins/
 examples/godot-demo/.godot/
 examples/godot-demo/addons/foldback/bin/
 bindings/godot/addons/foldback/bin/
+
+# bindings/unreal and examples/unreal-demo — the cbindgen-generated header
+# and the compiled foldback-sys static lib, both staged by CI/local builds
+# before the plugin compiles (never committed, same "regenerate, don't
+# commit binaries" pattern as the Unity/Godot native libs above).
+bindings/unreal/Source/ThirdParty/Foldback/include/
+bindings/unreal/Source/ThirdParty/Foldback/Win64/
+bindings/unreal/Source/ThirdParty/Foldback/Linux/
+bindings/unreal/Source/ThirdParty/Foldback/Mac/
+bindings/unreal/Intermediate/
+bindings/unreal/Binaries/
+examples/unreal-demo/Binaries/
+examples/unreal-demo/Intermediate/
+examples/unreal-demo/Saved/
+examples/unreal-demo/DerivedDataCache/
+examples/unreal-demo/*.sln
+examples/unreal-demo/Plugins/Foldback/

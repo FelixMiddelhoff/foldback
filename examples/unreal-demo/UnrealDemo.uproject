@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "Minimal Unreal project proving bindings/unreal against a real engine — not a game, a verification harness (same role examples/unity-demo and examples/godot-demo play for their own bindings).",
+	"Modules": [
+		{
+			"Name": "UnrealDemo",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "Foldback",
+			"Enabled": true
+		}
+	],
+	"AdditionalPluginDirectories": [
+		"../../bindings"
+	]
+}
