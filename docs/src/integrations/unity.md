@@ -52,6 +52,16 @@ if (session.CheckDivergence(out var divergedTick))
 
 `session.Dispose()` (or a `using` block) frees the native session — required, since it owns unmanaged memory.
 
+## Reflective hashing
+
+Landed: `[FoldbackHash]` on a field or property (`Runtime/FoldbackHashAttribute.cs`), walked by `FoldbackReflection.HashReflected(session, tick, entityId, prefix, root)` (`Runtime/FoldbackReflection.cs`) — no hand-written `HashField` calls needed. Enforces opt-in: only `root`'s own `[FoldbackHash]`-tagged members are visible; once one is reached, everything beneath it is walked without needing its own type separately tagged (same model as the Bevy and Unreal bindings). Sorts `IDictionary`/`ISet` entries by key before hashing (§3's shared determinism rule), catches genuine reference cycles via an identity-based visited-set (sound here — unlike the Bevy walker, C# reference types can form real cycles), and enforces a depth guard (default 8, `FoldbackReflectionException`). `FoldbackReflection.ListTracked(Type)` is the visibility-tooling data source (§4) — a real Unity `EditorWindow` consuming it hasn't been built. Per-type member access is cached via compiled `System.Linq.Expressions` getters (§2.2's stated perf mitigation), built once per type.
+
+Verified against the real, built native library the same way the rest of this page is: `bindings/unity/Tests~/FoldbackSys.Tests` exercises the walker, the sorted-container rule, cycle detection, the depth guard, and `ListTracked` — all pass, including a printed (not CI-gated) explicit-vs-reflective timing comparison, ~3.5x overhead for the reflective path at 1,000 entities, consistent with the Bevy walker's own measured ~3.7x.
+
+**Not yet confirmed under real IL2CPP AOT, unlike the rest of Level 1/2/3 above** — this is a genuine open risk, not an oversight: `Expression.Compile()` needs JIT/codegen on most .NET runtimes, and IL2CPP has no `DynamicMethod`/`Reflection.Emit`; it's expected to fall back to the BCL's expression *interpreter* instead, but that hasn't been exercised against a real IL2CPP player yet. A check for exactly this (`Il2cppVerify.cs`'s new reflective-hashing block) has been added to the same `examples/unity-demo` IL2CPP CI leg described above, but this session couldn't run a real Unity Editor + IL2CPP build to confirm it passes — that confirmation is still open, tracked the same way P1 already tracks this class of risk.
+
+See [Auto/Reflective Hashing](reflective-hashing.md) for the full cross-engine picture.
+
 ## Planning detail
 
 The IL2CPP AOT marshaling risk and its mitigation plan: see the project's risk register (P1, platform/FFI risks).

@@ -94,6 +94,37 @@ public static class Il2cppVerify
                 }
                 Check(found, "Level 2/3 hashing recorded, non-ASCII field name survives IL2CPP marshaling intact");
             }
+
+            // Reflective hashing (foldback-reflective-hashing.md §2.2):
+            // the one part of this that's a genuine, not-yet-confirmed
+            // IL2CPP unknown (risk-plan P1) — FoldbackReflection caches
+            // per-type field/property accessors via
+            // System.Linq.Expressions.Expression.Compile(), which needs
+            // JIT/codegen on most .NET runtimes but is expected to fall
+            // back to Unity's expression *interpreter* under IL2CPP AOT
+            // (no DynamicMethod/Reflection.Emit there). This check exists
+            // specifically to confirm that fallback actually works here,
+            // rather than assuming it — same "verify against the real
+            // engine constraint" standard the rest of this file already
+            // holds itself to.
+            {
+                using (var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 }))
+                {
+                    var unit = new Il2cppReflectUnit
+                    {
+                        Pos = new Il2cppPosition { X = 1.5f, Y = -2f },
+                        Hp = 42,
+                        DebugLabel = "not hashed",
+                    };
+                    var preview = FoldbackReflection.HashReflected(session, 0, 3, "unit", unit);
+                    var paths = new System.Collections.Generic.List<string>();
+                    foreach (var (p, _) in preview) paths.Add(p);
+                    Check(paths.Contains("unit.Pos.X") && paths.Contains("unit.Pos.Y") && paths.Contains("unit.Hp"),
+                        "reflective hashing (Expression.Compile-based accessors) records tagged fields under IL2CPP");
+                    Check(!paths.Contains("unit.DebugLabel"),
+                        "reflective hashing's untagged field stays invisible under IL2CPP");
+                }
+            }
         }
         catch (Exception e)
         {
@@ -110,4 +141,17 @@ public static class Il2cppVerify
 
         Application.Quit(failures == 0 ? 0 : 1);
     }
+}
+
+internal sealed class Il2cppPosition
+{
+    public float X;
+    public float Y;
+}
+
+internal sealed class Il2cppReflectUnit
+{
+    [FoldbackHash] public Il2cppPosition Pos;
+    [FoldbackHash] public int Hp;
+    public string DebugLabel;
 }

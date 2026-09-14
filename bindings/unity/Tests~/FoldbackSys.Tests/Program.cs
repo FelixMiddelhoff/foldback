@@ -7,7 +7,9 @@
 // are plain binaries that assert their own correctness rather than compiled
 // specs.
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Foldback;
 
 var failures = 0;
@@ -170,6 +172,182 @@ catch (ArgumentException)
     }
 }
 
+// ---- Reflective hashing (foldback-reflective-hashing.md §2.2) ----
+
+// Walks tagged fields with dotted/indexed paths; the untagged field is
+// invisible to the walker.
+{
+    var path = Path.Combine(Path.GetTempPath(), $"foldback-reflect-{Guid.NewGuid():N}.foldback");
+    try
+    {
+        using (var session = new FoldbackSession(new FoldbackConfig
+               {
+                   TickRateHz = 60,
+                   PeerCount = 1,
+                   RecordToPath = path,
+               }))
+        {
+            var unit = new ReflectUnit
+            {
+                Pos = new Position2 { X = 1.5f, Y = -2f },
+                Hp = 42,
+                Tags = new List<string> { "a", "b" },
+                DebugLabel = "not hashed",
+            };
+            var preview = FoldbackReflection.HashReflected(session, 0, 7, "unit", unit);
+            var paths = preview.Select(p => p.Path).ToList();
+            Check(paths.Contains("unit.Pos.X"), "reflective walk records unit.Pos.X");
+            Check(paths.Contains("unit.Pos.Y"), "reflective walk records unit.Pos.Y");
+            Check(paths.Contains("unit.Hp"), "reflective walk records unit.Hp");
+            Check(paths.Contains("unit.Tags[0]"), "reflective walk records unit.Tags[0]");
+            Check(paths.Contains("unit.Tags[1]"), "reflective walk records unit.Tags[1]");
+            Check(paths.All(p => !p.Contains("DebugLabel")), "the untagged field is never recorded");
+            session.FinishRecording();
+        }
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+// Same tracked-field state hashes identically; a differing tracked field
+// changes the hash; an untagged field's difference doesn't.
+{
+    var a = new ReflectUnit { Pos = new Position2 { X = 1f, Y = 2f }, Hp = 10, Tags = new List<string>(), DebugLabel = "a" };
+    var b = new ReflectUnit { Pos = new Position2 { X = 1f, Y = 2f }, Hp = 10, Tags = new List<string>(), DebugLabel = "b differs but untracked" };
+    var c = new ReflectUnit { Pos = new Position2 { X = 1f, Y = 3f }, Hp = 10, Tags = new List<string>(), DebugLabel = "a" };
+
+    ulong Sum(List<(string Path, ulong Hash)> preview) => preview.Aggregate(0UL, (acc, p) => acc ^ p.Hash);
+
+    using var sa = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    using var sb = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    using var sc = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    var ha = Sum(FoldbackReflection.HashReflected(sa, 0, 0, "u", a));
+    var hb = Sum(FoldbackReflection.HashReflected(sb, 0, 0, "u", b));
+    var hc = Sum(FoldbackReflection.HashReflected(sc, 0, 0, "u", c));
+    Check(ha == hb, "an untracked field's difference doesn't change the hash");
+    Check(ha != hc, "a tracked field's difference changes the hash");
+}
+
+// §3's sorted-container rule: dictionary/set hashing is independent of
+// insertion order.
+{
+    var d1 = new DictHolder { Items = new Dictionary<string, int>() };
+    d1.Items["sword"] = 1;
+    d1.Items["shield"] = 2;
+    var d2 = new DictHolder { Items = new Dictionary<string, int>() };
+    d2.Items["shield"] = 2;
+    d2.Items["sword"] = 1;
+
+    using var sd1 = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    using var sd2 = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    var pd1 = FoldbackReflection.HashReflected(sd1, 0, 0, "d", d1);
+    var pd2 = FoldbackReflection.HashReflected(sd2, 0, 0, "d", d2);
+    Check(pd1.SequenceEqual(pd2), "dictionary hashing is independent of insertion order");
+
+    var s1 = new SetHolder { Items = new HashSet<int> { 3, 1, 4, 1, 5, 9 } };
+    var s2 = new SetHolder { Items = new HashSet<int> { 9, 5, 1, 4, 3 } };
+    using var ss1 = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    using var ss2 = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    var ps1 = FoldbackReflection.HashReflected(ss1, 0, 0, "s", s1);
+    var ps2 = FoldbackReflection.HashReflected(ss2, 0, 0, "s", s2);
+    Check(ps1.SequenceEqual(ps2), "set hashing is independent of insertion order");
+}
+
+// A genuine reference cycle is caught, loudly, rather than hanging.
+{
+    var a = new CycleNode { Value = 1 };
+    var b = new CycleNode { Value = 2 };
+    a.Next = b;
+    b.Next = a;
+
+    using var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    try
+    {
+        FoldbackReflection.HashReflected(session, 0, 0, "n", a);
+        Check(false, "a genuine reference cycle throws FoldbackReflectionException");
+    }
+    catch (FoldbackReflectionException)
+    {
+        Check(true, "a genuine reference cycle throws FoldbackReflectionException");
+    }
+}
+
+// The depth guard rejects a runaway (but acyclic) chain.
+{
+    var deep = new DeepNode { Value = 0 };
+    for (var i = 0; i < 10; i++)
+    {
+        deep = new DeepNode { Value = i, Inner = deep };
+    }
+    var root = new DeepRoot { Inner = deep };
+
+    using var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+    try
+    {
+        FoldbackReflection.HashReflected(session, 0, 0, "r", root);
+        Check(false, "a runaway nesting chain hits the depth guard");
+    }
+    catch (FoldbackReflectionException)
+    {
+        Check(true, "a runaway nesting chain hits the depth guard");
+    }
+}
+
+// Visibility tooling: ListTracked reports the same tracked/untracked
+// split HashReflected actually enforces.
+{
+    var (tracked, untracked) = FoldbackReflection.ListTracked(typeof(ReflectUnit));
+    Check(tracked.Contains("Pos") && tracked.Contains("Hp") && tracked.Contains("Tags"),
+        "ListTracked reports the tagged fields");
+    Check(untracked.Contains("DebugLabel"), "ListTracked reports the untagged sibling");
+}
+
+// Performance: not assumed free (plan §5) — printed for visibility, not
+// asserted, matching the Bevy walker's Criterion benchmark in spirit
+// (this harness stays dependency-free, no BenchmarkDotNet).
+{
+    const int entityCount = 1000;
+    var units = Enumerable.Range(0, entityCount)
+        .Select(i => new ReflectUnit
+        {
+            Pos = new Position2 { X = i, Y = i * 2f },
+            Hp = 100 - (i % 100),
+            Tags = new List<string> { "x" },
+            DebugLabel = "d",
+        })
+        .ToList();
+
+    using (var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 }))
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (var id = 0; id < units.Count; id++)
+        {
+            FoldbackReflection.HashReflected(session, 0, (ulong)id, "unit", units[id]);
+        }
+        sw.Stop();
+        Console.WriteLine($"reflective: {entityCount} entities in {sw.Elapsed.TotalMilliseconds:F2} ms");
+    }
+
+    using (var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 }))
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (var id = 0; id < units.Count; id++)
+        {
+            var u = units[id];
+            session.HashField(0, (ulong)id, "unit.Pos.X", BitConverter.GetBytes(u.Pos.X));
+            session.HashField(0, (ulong)id, "unit.Pos.Y", BitConverter.GetBytes(u.Pos.Y));
+            session.HashField(0, (ulong)id, "unit.Hp", BitConverter.GetBytes(u.Hp));
+        }
+        sw.Stop();
+        Console.WriteLine($"explicit:   {entityCount} entities in {sw.Elapsed.TotalMilliseconds:F2} ms");
+    }
+}
+
 Console.WriteLine();
 if (failures == 0)
 {
@@ -178,3 +356,44 @@ if (failures == 0)
 }
 Console.WriteLine($"{failures} check(s) FAILED");
 return 1;
+
+class Position2
+{
+    public float X;
+    public float Y;
+}
+
+class ReflectUnit
+{
+    [FoldbackHash] public Position2 Pos;
+    [FoldbackHash] public int Hp;
+    [FoldbackHash] public List<string> Tags;
+    public string DebugLabel;
+}
+
+class DictHolder
+{
+    [FoldbackHash] public Dictionary<string, int> Items;
+}
+
+class SetHolder
+{
+    [FoldbackHash] public HashSet<int> Items;
+}
+
+class CycleNode
+{
+    [FoldbackHash] public CycleNode Next;
+    [FoldbackHash] public int Value;
+}
+
+class DeepNode
+{
+    [FoldbackHash] public DeepNode Inner;
+    [FoldbackHash] public int Value;
+}
+
+class DeepRoot
+{
+    [FoldbackHash] public DeepNode Inner;
+}
