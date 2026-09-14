@@ -6,3 +6,9 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+foldback-core = { path = "../foldback-core" }
+ggrs = { version = "0.13", optional = true }
+
+[features]
+default = []
+ggrs = ["dep:ggrs"]

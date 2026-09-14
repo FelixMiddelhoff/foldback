@@ -1,15 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! `foldback-rs` — engine/library integration helpers on top of
+//! `foldback-core`. Each integration lives behind its own feature flag so
+//! a project only pulls in the dependencies for the binding it actually
+//! uses; see `foldback-plan.md` §6 Phase 2 for the roadmap this fulfills.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+#[cfg(feature = "ggrs")]
+pub mod ggrs;

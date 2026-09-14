@@ -1011,6 +1011,10 @@ dependencies = [
 [[package]]
 name = "foldback-rs"
 version = "0.0.1"
+dependencies = [
+ "foldback-core",
+ "ggrs",
+]
 
 [[package]]
 name = "foldback-sys"
