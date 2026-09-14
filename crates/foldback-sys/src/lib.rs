@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! `foldback-sys` — the C ABI surface (foldback-protocol-spec.md §3), for
 //! every non-Rust binding (Unity/C#, Godot/GDExtension, Unreal/C++) to
-//! build on. Level 1 (per-tick) only, matching cookbook recipe 8's own
-//! scope — Level 2/3 (entity/field) hashing across this boundary is a
-//! deliberate follow-up, not built here, the same way Phase 0 shipped
-//! Level 1 before Level 2/3 followed as their own slice.
+//! build on. Level 1 (per-tick), Level 2 (per-entity), and Level 3
+//! (per-field) hashing, matching `foldback_core::session::Session`'s own
+//! three tiers — Level 2/3 landed after Level 1, the same way Phase 0
+//! shipped Level 1 before Level 2/3 followed as their own slice at the
+//! `foldback_core` layer.
 //!
 //! Every entry point is wrapped in `catch_unwind`: a Rust panic
 //! unwinding across an `extern "C"` boundary into C/C++/C# calling code
@@ -212,6 +213,123 @@ pub unsafe extern "C" fn foldback_record_peer_hash(
     })
 }
 
+/// Level 2: hashes one entity's state and records it as this session's
+/// own report for `tick` (cookbook recipe 4). Recording-only — like
+/// `foldback_core::Session::hash_entity` itself, this is a no-op beyond
+/// the hash call unless the session was created with `record_to_path`
+/// set; there's no in-memory Level 2 divergence tracking yet (matches
+/// `Session::hash_entity`'s own documented scope).
+///
+/// # Safety
+/// `session` must be a valid pointer from [`foldback_session_create`].
+/// `state` must point to at least `len` readable bytes (or be null iff
+/// `len` is 0).
+#[no_mangle]
+pub unsafe extern "C" fn foldback_hash_entity(
+    session: *mut Handle,
+    tick: u64,
+    entity_id: u64,
+    state: *const u8,
+    len: usize,
+) -> Status {
+    run_catching(Status::Panic, || {
+        let session = as_session_mut(session)?;
+        let bytes = bytes_from_raw(state, len)?;
+        session
+            .0
+            .hash_entity(tick, entity_id, bytes)
+            .map_err(|e| format!("hash_entity failed: {e}"))?;
+        Ok(Status::Ok)
+    })
+}
+
+/// Records an entity hash reported by any peer (including this
+/// session's own, via [`foldback_hash_entity`]) — the
+/// `foldback_record_peer_hash` counterpart for Level 2.
+///
+/// # Safety
+/// `session` must be a valid pointer from [`foldback_session_create`].
+#[no_mangle]
+pub unsafe extern "C" fn foldback_record_peer_entity_hash(
+    session: *mut Handle,
+    tick: u64,
+    peer_id: u16,
+    entity_id: u64,
+    hash: u64,
+) -> Status {
+    run_catching(Status::Panic, || {
+        let session = as_session_mut(session)?;
+        session
+            .0
+            .record_peer_entity_hash(tick, peer_id, entity_id, hash)
+            .map_err(|e| format!("record_peer_entity_hash failed: {e}"))?;
+        Ok(Status::Ok)
+    })
+}
+
+/// Level 3: hashes one field's value and records it as this session's
+/// own report for `tick`, keeping the raw `value` bytes too (cookbook
+/// recipe 5) — this is what lets the UI show "3.14159 vs 3.14158"
+/// instead of just two unequal hashes. Recording-only, same caveat as
+/// [`foldback_hash_entity`].
+///
+/// # Safety
+/// `session` must be a valid pointer from [`foldback_session_create`].
+/// `field_name` must be a valid NUL-terminated UTF-8 C string. `value`
+/// must point to at least `value_len` readable bytes (or be null iff
+/// `value_len` is 0).
+#[no_mangle]
+pub unsafe extern "C" fn foldback_hash_field(
+    session: *mut Handle,
+    tick: u64,
+    entity_id: u64,
+    field_name: *const c_char,
+    value: *const u8,
+    value_len: usize,
+) -> Status {
+    run_catching(Status::Panic, || {
+        let session = as_session_mut(session)?;
+        let field_name = str_from_raw(field_name)?;
+        let bytes = bytes_from_raw(value, value_len)?;
+        session
+            .0
+            .hash_field(tick, entity_id, field_name, bytes)
+            .map_err(|e| format!("hash_field failed: {e}"))?;
+        Ok(Status::Ok)
+    })
+}
+
+/// Records a field hash reported by any peer — the
+/// `foldback_record_peer_hash` counterpart for Level 3.
+///
+/// # Safety
+/// `session` must be a valid pointer from [`foldback_session_create`].
+/// `field_name` must be a valid NUL-terminated UTF-8 C string. `value`
+/// must point to at least `value_len` readable bytes (or be null iff
+/// `value_len` is 0).
+#[no_mangle]
+pub unsafe extern "C" fn foldback_record_peer_field_hash(
+    session: *mut Handle,
+    tick: u64,
+    peer_id: u16,
+    entity_id: u64,
+    field_name: *const c_char,
+    hash: u64,
+    value: *const u8,
+    value_len: usize,
+) -> Status {
+    run_catching(Status::Panic, || {
+        let session = as_session_mut(session)?;
+        let field_name = str_from_raw(field_name)?;
+        let bytes = bytes_from_raw(value, value_len)?;
+        session
+            .0
+            .record_peer_field_hash(tick, peer_id, entity_id, field_name, hash, bytes)
+            .map_err(|e| format!("record_peer_field_hash failed: {e}"))?;
+        Ok(Status::Ok)
+    })
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct PendingHash {
@@ -383,6 +501,15 @@ unsafe fn as_session_ref<'a>(session: *const Handle) -> Result<&'a Handle, Strin
         .ok_or_else(|| "session was null".to_string())
 }
 
+unsafe fn str_from_raw<'a>(ptr: *const c_char) -> Result<&'a str, String> {
+    if ptr.is_null() {
+        return Err("field_name was null".to_string());
+    }
+    CStr::from_ptr(ptr)
+        .to_str()
+        .map_err(|e| format!("field_name was not valid UTF-8: {e}"))
+}
+
 unsafe fn bytes_from_raw<'a>(ptr: *const u8, len: usize) -> Result<&'a [u8], String> {
     if len == 0 {
         return Ok(&[]);
@@ -505,6 +632,144 @@ mod tests {
 
         assert!(path.exists());
         assert!(std::fs::metadata(&path).unwrap().len() > 0);
+    }
+
+    #[test]
+    fn entity_and_field_hashing_write_frames_when_recording() {
+        use foldback_core::format::{Frame, FrameReader, Header};
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("l23.foldback");
+        let path_c = CString::new(path.to_str().unwrap()).unwrap();
+        let field_name = CString::new("position.x").unwrap();
+
+        unsafe {
+            let mut config = make_config();
+            config.record_to_path = path_c.as_ptr();
+            let session = foldback_session_create(&config);
+            assert!(!session.is_null());
+
+            let entity_state = [1u8, 2, 3];
+            let status =
+                foldback_hash_entity(session, 10, 7, entity_state.as_ptr(), entity_state.len());
+            assert_eq!(status, Status::Ok);
+
+            let field_value = 3.5f32.to_le_bytes();
+            let status = foldback_hash_field(
+                session,
+                10,
+                7,
+                field_name.as_ptr(),
+                field_value.as_ptr(),
+                field_value.len(),
+            );
+            assert_eq!(status, Status::Ok);
+
+            let status = foldback_record_peer_entity_hash(session, 10, 1, 7, 0xdead_beef);
+            assert_eq!(status, Status::Ok);
+            let status = foldback_record_peer_field_hash(
+                session,
+                10,
+                1,
+                7,
+                field_name.as_ptr(),
+                0xcafe_babe,
+                field_value.as_ptr(),
+                field_value.len(),
+            );
+            assert_eq!(status, Status::Ok);
+
+            let status = foldback_finish_recording(session);
+            assert_eq!(status, Status::Ok);
+            foldback_session_destroy(session);
+        }
+
+        let mut file = std::fs::File::open(&path).unwrap();
+        Header::read_from(&mut file).unwrap();
+        let frames: Vec<_> = FrameReader::new(file).map(|f| f.unwrap()).collect();
+
+        let entity_frames: Vec<_> = frames
+            .iter()
+            .filter(|f| matches!(f, Frame::EntityHash { .. }))
+            .collect();
+        assert_eq!(entity_frames.len(), 2, "one local + one peer entity hash");
+        assert!(matches!(
+            entity_frames[0],
+            Frame::EntityHash {
+                tick: 10,
+                peer_id: 0,
+                entity_id: 7,
+                ..
+            }
+        ));
+        assert!(matches!(
+            entity_frames[1],
+            Frame::EntityHash {
+                tick: 10,
+                peer_id: 1,
+                entity_id: 7,
+                hash: 0xdead_beef,
+                ..
+            }
+        ));
+
+        let field_frames: Vec<_> = frames
+            .iter()
+            .filter(|f| matches!(f, Frame::FieldHash { .. }))
+            .collect();
+        assert_eq!(field_frames.len(), 2, "one local + one peer field hash");
+        assert!(matches!(
+            field_frames[0],
+            Frame::FieldHash { tick: 10, peer_id: 0, entity_id: 7, field_name, .. }
+            if field_name == "position.x"
+        ));
+        assert!(matches!(
+            field_frames[1],
+            Frame::FieldHash {
+                tick: 10,
+                peer_id: 1,
+                entity_id: 7,
+                hash: 0xcafe_babe,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn entity_and_field_hashing_are_no_ops_without_recording() {
+        unsafe {
+            let config = make_config(); // no record_to_path
+            let session = foldback_session_create(&config);
+            assert!(!session.is_null());
+
+            let status = foldback_hash_entity(session, 0, 0, [1u8].as_ptr(), 1);
+            assert_eq!(status, Status::Ok);
+
+            let field_name = CString::new("x").unwrap();
+            let status = foldback_hash_field(session, 0, 0, field_name.as_ptr(), [1u8].as_ptr(), 1);
+            assert_eq!(status, Status::Ok);
+
+            foldback_session_destroy(session);
+        }
+    }
+
+    #[test]
+    fn null_field_name_reports_an_error_instead_of_crashing() {
+        unsafe {
+            let config = make_config();
+            let session = foldback_session_create(&config);
+
+            let status = foldback_hash_field(session, 0, 0, ptr::null(), ptr::null(), 0);
+            assert_eq!(status, Status::Panic);
+
+            let mut buf = [0i8; 256];
+            let len = foldback_last_error(buf.as_mut_ptr(), buf.len());
+            assert!(len > 0);
+            let msg = CStr::from_ptr(buf.as_ptr()).to_str().unwrap();
+            assert!(msg.contains("field_name"));
+
+            foldback_session_destroy(session);
+        }
     }
 
     #[test]

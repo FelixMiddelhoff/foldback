@@ -114,6 +114,78 @@ FoldbackStatus foldback_record_peer_hash(struct FoldbackHandle *session,
                                          uint64_t hash);
 
 /**
+ * Level 2: hashes one entity's state and records it as this session's
+ * own report for `tick` (cookbook recipe 4). Recording-only — like
+ * `foldback_core::Session::hash_entity` itself, this is a no-op beyond
+ * the hash call unless the session was created with `record_to_path`
+ * set; there's no in-memory Level 2 divergence tracking yet (matches
+ * `Session::hash_entity`'s own documented scope).
+ *
+ * # Safety
+ * `session` must be a valid pointer from [`foldback_session_create`].
+ * `state` must point to at least `len` readable bytes (or be null iff
+ * `len` is 0).
+ */
+FoldbackStatus foldback_hash_entity(struct FoldbackHandle *session,
+                                    uint64_t tick,
+                                    uint64_t entity_id,
+                                    const uint8_t *state,
+                                    uintptr_t len);
+
+/**
+ * Records an entity hash reported by any peer (including this
+ * session's own, via [`foldback_hash_entity`]) — the
+ * `foldback_record_peer_hash` counterpart for Level 2.
+ *
+ * # Safety
+ * `session` must be a valid pointer from [`foldback_session_create`].
+ */
+FoldbackStatus foldback_record_peer_entity_hash(struct FoldbackHandle *session,
+                                                uint64_t tick,
+                                                uint16_t peer_id,
+                                                uint64_t entity_id,
+                                                uint64_t hash);
+
+/**
+ * Level 3: hashes one field's value and records it as this session's
+ * own report for `tick`, keeping the raw `value` bytes too (cookbook
+ * recipe 5) — this is what lets the UI show "3.14159 vs 3.14158"
+ * instead of just two unequal hashes. Recording-only, same caveat as
+ * [`foldback_hash_entity`].
+ *
+ * # Safety
+ * `session` must be a valid pointer from [`foldback_session_create`].
+ * `field_name` must be a valid NUL-terminated UTF-8 C string. `value`
+ * must point to at least `value_len` readable bytes (or be null iff
+ * `value_len` is 0).
+ */
+FoldbackStatus foldback_hash_field(struct FoldbackHandle *session,
+                                   uint64_t tick,
+                                   uint64_t entity_id,
+                                   const char *field_name,
+                                   const uint8_t *value,
+                                   uintptr_t value_len);
+
+/**
+ * Records a field hash reported by any peer — the
+ * `foldback_record_peer_hash` counterpart for Level 3.
+ *
+ * # Safety
+ * `session` must be a valid pointer from [`foldback_session_create`].
+ * `field_name` must be a valid NUL-terminated UTF-8 C string. `value`
+ * must point to at least `value_len` readable bytes (or be null iff
+ * `value_len` is 0).
+ */
+FoldbackStatus foldback_record_peer_field_hash(struct FoldbackHandle *session,
+                                               uint64_t tick,
+                                               uint16_t peer_id,
+                                               uint64_t entity_id,
+                                               const char *field_name,
+                                               uint64_t hash,
+                                               const uint8_t *value,
+                                               uintptr_t value_len);
+
+/**
  * The number of hashes currently pending (produced locally since the
  * last [`foldback_take_pending_hashes`] call), without draining them —
  * lets a caller size its send buffer before draining.

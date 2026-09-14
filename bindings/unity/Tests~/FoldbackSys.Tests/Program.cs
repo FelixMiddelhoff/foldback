@@ -25,6 +25,27 @@ void Check(bool condition, string what)
     }
 }
 
+int IndexOf(byte[] haystack, byte[] needle)
+{
+    for (var i = 0; i <= haystack.Length - needle.Length; i++)
+    {
+        var match = true;
+        for (var j = 0; j < needle.Length; j++)
+        {
+            if (haystack[i + j] != needle[j])
+            {
+                match = false;
+                break;
+            }
+        }
+        if (match)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 // hash_tick + take_pending_hashes round-trip.
 using (var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 2 }))
 {
@@ -78,6 +99,41 @@ using (var b = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCou
         }
         Check(File.Exists(path), "record_to_path creates the session file");
         Check(new FileInfo(path).Length > 0, "the recorded session file is non-empty");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+// Level 2/3 (entity/field) hashing round-trips into the recorded file,
+// including a non-ASCII field name — proves the Utf8Buffer marshaling
+// path handles more than plain ASCII, not just that the call didn't throw.
+{
+    var path = Path.Combine(Path.GetTempPath(), $"foldback-cs-l23-{Guid.NewGuid():N}.foldback");
+    const string fieldName = "posé.x"; // "posé.x" — contains a non-ASCII byte in UTF-8
+    try
+    {
+        using (var session = new FoldbackSession(new FoldbackConfig
+        {
+            TickRateHz = 60,
+            PeerCount = 2,
+            RecordToPath = path,
+        }))
+        {
+            session.HashEntity(10, 7, new byte[] { 1, 2, 3 });
+            session.RecordPeerEntityHash(10, 1, 7, 0xdeadbeef);
+            session.HashField(10, 7, fieldName, new byte[] { 9, 9 });
+            session.RecordPeerFieldHash(10, 1, 7, fieldName, 0xcafebabe, new byte[] { 9, 9 });
+            session.FinishRecording();
+        }
+        var bytes = File.ReadAllBytes(path);
+        var needle = System.Text.Encoding.UTF8.GetBytes(fieldName);
+        var found = IndexOf(bytes, needle) >= 0;
+        Check(found, "the recorded file contains the (non-ASCII) field name's exact UTF-8 bytes");
     }
     finally
     {

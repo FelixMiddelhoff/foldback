@@ -56,6 +56,44 @@ public static class Il2cppVerify
                 b.HashTick(5, new byte[] { 0xff });
                 Check(a.Finish() != b.Finish(), "a diverging run's finish() value disagrees");
             }
+
+            // Level 2/3: the field-name string-marshaling path (Utf8Buffer)
+            // is exactly the kind of thing IL2CPP AOT can behave
+            // differently on (risk-plan P1) — worth proving here, not just
+            // in the Editor-run .NET harness. Non-ASCII on purpose.
+            {
+                var path = Path.Combine(Application.temporaryCachePath, "il2cpp-l23-check.foldback");
+                const string fieldName = "posé.x";
+                using (var session = new FoldbackSession(new FoldbackConfig
+                {
+                    TickRateHz = 60,
+                    PeerCount = 2,
+                    RecordToPath = path,
+                }))
+                {
+                    session.HashEntity(10, 7, new byte[] { 1, 2, 3 });
+                    session.RecordPeerEntityHash(10, 1, 7, 0xdeadbeef);
+                    session.HashField(10, 7, fieldName, new byte[] { 9, 9 });
+                    session.RecordPeerFieldHash(10, 1, 7, fieldName, 0xcafebabe, new byte[] { 9, 9 });
+                    session.FinishRecording();
+                }
+                var bytes = File.ReadAllBytes(path);
+                var needle = Encoding.UTF8.GetBytes(fieldName);
+                var found = false;
+                for (var i = 0; i <= bytes.Length - needle.Length && !found; i++)
+                {
+                    found = true;
+                    for (var j = 0; j < needle.Length; j++)
+                    {
+                        if (bytes[i + j] != needle[j])
+                        {
+                            found = false;
+                            break;
+                        }
+                    }
+                }
+                Check(found, "Level 2/3 hashing recorded, non-ASCII field name survives IL2CPP marshaling intact");
+            }
         }
         catch (Exception e)
         {

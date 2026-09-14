@@ -85,6 +85,54 @@ namespace Foldback
             ThrowIfError(status, "RecordPeerHash");
         }
 
+        /// Level 2: hashes one entity's state and records it as this
+        /// session's own report for `tick` (cookbook recipe 4).
+        /// Recording-only — a no-op beyond the hash call unless this
+        /// session was created with <see cref="FoldbackConfig.RecordToPath"/>
+        /// set; there's no in-memory Level 2 divergence tracking yet.
+        public void HashEntity(ulong tick, ulong entityId, byte[] state)
+        {
+            ThrowIfDisposed();
+            var bytes = state ?? Array.Empty<byte>();
+            var status = FoldbackNative.foldback_hash_entity(_handle, tick, entityId, bytes, (UIntPtr)bytes.Length);
+            ThrowIfError(status, "HashEntity");
+        }
+
+        /// Records an entity hash reported by any peer (including this
+        /// session's own, via <see cref="HashEntity"/>).
+        public void RecordPeerEntityHash(ulong tick, ushort peerId, ulong entityId, ulong hash)
+        {
+            ThrowIfDisposed();
+            var status = FoldbackNative.foldback_record_peer_entity_hash(_handle, tick, peerId, entityId, hash);
+            ThrowIfError(status, "RecordPeerEntityHash");
+        }
+
+        /// Level 3: hashes one field's value and records it as this
+        /// session's own report for `tick`, keeping the raw value bytes too
+        /// (cookbook recipe 5) — this is what lets the UI show
+        /// "3.14159 vs 3.14158" instead of just two unequal hashes.
+        /// Recording-only, same caveat as <see cref="HashEntity"/>.
+        public void HashField(ulong tick, ulong entityId, string fieldName, byte[] value)
+        {
+            ThrowIfDisposed();
+            var bytes = value ?? Array.Empty<byte>();
+            using var name = new Utf8Buffer(fieldName ?? throw new ArgumentNullException(nameof(fieldName)));
+            var status = FoldbackNative.foldback_hash_field(
+                _handle, tick, entityId, name.Ptr, bytes, (UIntPtr)bytes.Length);
+            ThrowIfError(status, "HashField");
+        }
+
+        /// Records a field hash reported by any peer.
+        public void RecordPeerFieldHash(ulong tick, ushort peerId, ulong entityId, string fieldName, ulong hash, byte[] value)
+        {
+            ThrowIfDisposed();
+            var bytes = value ?? Array.Empty<byte>();
+            using var name = new Utf8Buffer(fieldName ?? throw new ArgumentNullException(nameof(fieldName)));
+            var status = FoldbackNative.foldback_record_peer_field_hash(
+                _handle, tick, peerId, entityId, name.Ptr, hash, bytes, (UIntPtr)bytes.Length);
+            ThrowIfError(status, "RecordPeerFieldHash");
+        }
+
         /// Drains and returns hashes produced locally since the last call —
         /// send these to peers over the game's own netcode channel.
         public PendingHash[] TakePendingHashes()

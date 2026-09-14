@@ -77,6 +77,48 @@ namespace Foldback
             ulong hash);
 
         [DllImport(LibName)]
+        internal static extern NativeStatus foldback_hash_entity(
+            IntPtr session,
+            ulong tick,
+            ulong entityId,
+            [In] byte[] state,
+            UIntPtr len);
+
+        [DllImport(LibName)]
+        internal static extern NativeStatus foldback_record_peer_entity_hash(
+            IntPtr session,
+            ulong tick,
+            ushort peerId,
+            ulong entityId,
+            ulong hash);
+
+        // `fieldName` is a raw pointer, not a marshaled `string` parameter —
+        // same conservative reasoning as `NativeConfig.RecordToPath`: this
+        // codebase sticks to one verified-under-IL2CPP string-passing
+        // pattern (a caller-owned `Utf8Buffer`) rather than introducing a
+        // second, differently-marshaled one that hasn't been proven against
+        // a real IL2CPP build.
+        [DllImport(LibName)]
+        internal static extern NativeStatus foldback_hash_field(
+            IntPtr session,
+            ulong tick,
+            ulong entityId,
+            IntPtr fieldName,
+            [In] byte[] value,
+            UIntPtr valueLen);
+
+        [DllImport(LibName)]
+        internal static extern NativeStatus foldback_record_peer_field_hash(
+            IntPtr session,
+            ulong tick,
+            ushort peerId,
+            ulong entityId,
+            IntPtr fieldName,
+            ulong hash,
+            [In] byte[] value,
+            UIntPtr valueLen);
+
+        [DllImport(LibName)]
         internal static extern UIntPtr foldback_pending_hash_count(IntPtr session);
 
         [DllImport(LibName)]
