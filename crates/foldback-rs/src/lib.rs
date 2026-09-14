@@ -4,5 +4,7 @@
 //! a project only pulls in the dependencies for the binding it actually
 //! uses; see `foldback-plan.md` §6 Phase 2 for the roadmap this fulfills.
 
+#[cfg(feature = "bevy")]
+pub mod bevy;
 #[cfg(feature = "ggrs")]
 pub mod ggrs;

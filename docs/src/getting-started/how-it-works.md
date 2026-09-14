@@ -26,7 +26,7 @@ bindings/       Unity, Unreal (foldback-sys's C ABI), Godot (direct gdext)
 
 ## What's planned next
 
-- **Ongoing**: auto/reflective hashing per binding (Bevy first, per the reflective-hashing plan), MVP/launch-gate items.
+- **Ongoing**: auto/reflective hashing per binding — Bevy's walker has landed (`foldback-rs`'s `bevy` feature, see [Auto/Reflective Hashing](../integrations/reflective-hashing.md)); visibility tooling and Unity/Godot still open. MVP/launch-gate items also open.
 
 Full roadmap and week-by-week reasoning: the project's own planning set (linked from [Project](../project/testing.md) pages) — this site tracks `main`, so it describes what's actually shipped, not the plan for what will be.
 
