@@ -4,14 +4,18 @@
 //! that). Two independent local `SyncTestSession`s stand in for two
 //! network peers running the same GGRS-driven simulation; each tick's
 //! confirmed state is hashed and recorded into one shared, two-peer
-//! `.foldback` file — including one injected divergence, so the recorded
+//! `.foldback` file — including one injected divergence, plus Level 2/3
+//! (per-entity, per-field) hashes in a window around it, so the recorded
 //! file is real evidence for the Foldback UI (Master Sequence §4) rather
-//! than a synthetic fixture.
+//! than a synthetic fixture — and its bisection drill-down panel has real
+//! data to show, not just the honest "nothing recorded" placeholder.
 //!
-//! `foldback-rs`'s `attach_foldback` GGRS extension (cookbook recipe 3)
-//! isn't built yet — that's Phase 2. This example calls
-//! `foldback_core::hash::hash_bytes` and `Session::record_peer_hash`
-//! directly, the same Level-1 API `minimal-rust` uses.
+//! This uses `Session::record_peer_hash`/`hash_entity`/`hash_field`
+//! directly (Level 1/2/3 producer API), the same as `minimal-rust` for
+//! Level 1. `foldback-rs`'s GGRS bridge (`checksum`/`record_desync`,
+//! cookbook recipe 3) is for a real networked `P2pSession`'s own
+//! `DesyncDetected` event — `SyncTestSession` here catches mismatches
+//! internally, so there's no such event to bridge.
 //!
 //! Run: `cargo run -p ggrs-demo`
 
@@ -22,6 +26,12 @@ use ggrs::{Config, GgrsRequest, PredictRepeatLast, SessionBuilder};
 
 const NUM_TICKS: u64 = 120;
 const DIVERGE_AT_TICK: u64 = 75;
+/// Level 2/3 (entity/field) hashing is recorded only in a window around
+/// the known divergence — matches how it's actually meant to be used
+/// (cookbook recipes 4/5): once Level 1 has found *which tick*, finer
+/// detail is worth the extra bytes; recording it for every tick of every
+/// session by default isn't.
+const ENTITY_FIELD_WINDOW: std::ops::Range<u64> = (DIVERGE_AT_TICK - 5)..(DIVERGE_AT_TICK + 5);
 
 #[repr(C)]
 #[derive(
@@ -99,6 +109,16 @@ impl GameState {
     }
 }
 
+/// Decodes per-player (x, y) back out of `GameState::serialize`'s byte
+/// layout — used for Level 2/3 hashing, reading from the (possibly
+/// tick-75-corrupted) bytes actually recorded rather than re-deriving
+/// from `GameState`, so entity/field hashes reflect the same reality the
+/// tick hash does.
+fn decode_players(bytes: &[u8]) -> [(i32, i32); 2] {
+    let at = |i: usize| i32::from_le_bytes(bytes[i..i + 4].try_into().unwrap());
+    [(at(0), at(4)), (at(8), at(12))]
+}
+
 /// Runs one local GGRS `SyncTestSession` for `NUM_TICKS` frames, calling
 /// `on_confirmed_tick(tick, state_bytes)` once per frame as it's
 /// confirmed. `check_distance(0)` keeps this a clean one-request-per-tick
@@ -147,6 +167,38 @@ fn run_sim(corrupt_at: Option<u64>, mut on_confirmed_tick: impl FnMut(u64, Vec<u
     }
 }
 
+/// Records Level 2 (per-entity) and Level 3 (per-field) hashes for both
+/// players at `tick`, into `recording` as `peer_id`'s report — see
+/// `Session::hash_entity`/`hash_field` for why these two exist separately
+/// from `record_peer_hash` and don't participate in `check_divergence`.
+fn record_entity_and_field_hashes(
+    recording: &mut FoldbackSession,
+    tick: u64,
+    peer_id: u16,
+    bytes: &[u8],
+) {
+    for (entity_id, (x, y)) in decode_players(bytes).into_iter().enumerate() {
+        let entity_id = entity_id as u64;
+        let entity_bytes = [x.to_le_bytes(), y.to_le_bytes()].concat();
+        recording
+            .record_peer_entity_hash(tick, peer_id, entity_id, hash_bytes(&entity_bytes))
+            .unwrap();
+        for (field_name, value) in [("position.x", x), ("position.y", y)] {
+            let value_bytes = value.to_le_bytes();
+            recording
+                .record_peer_field_hash(
+                    tick,
+                    peer_id,
+                    entity_id,
+                    field_name,
+                    hash_bytes(&value_bytes),
+                    &value_bytes,
+                )
+                .unwrap();
+        }
+    }
+}
+
 fn main() {
     println!("=== Foldback ggrs-demo ===\n");
 
@@ -162,6 +214,9 @@ fn main() {
     run_sim(None, |tick, bytes| {
         let hash = hash_bytes(&bytes);
         recording.record_peer_hash(tick, 0, hash).unwrap();
+        if ENTITY_FIELD_WINDOW.contains(&tick) {
+            record_entity_and_field_hashes(&mut recording, tick, 0, &bytes);
+        }
     });
 
     println!(
@@ -170,6 +225,9 @@ fn main() {
     run_sim(Some(DIVERGE_AT_TICK), |tick, bytes| {
         let hash = hash_bytes(&bytes);
         recording.record_peer_hash(tick, 1, hash).unwrap();
+        if ENTITY_FIELD_WINDOW.contains(&tick) {
+            record_entity_and_field_hashes(&mut recording, tick, 1, &bytes);
+        }
     });
 
     let divergence = recording.check_divergence();

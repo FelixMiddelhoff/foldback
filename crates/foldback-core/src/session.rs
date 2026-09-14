@@ -162,6 +162,97 @@ impl Session {
         Ok(())
     }
 
+    /// Level 2: hash one entity's state and record it as this session's
+    /// own (`local_peer_id`'s) report — narrower than `hash_tick`, meant
+    /// to be called once a Level 1 divergence has already narrowed things
+    /// down to a tick and finer detail is worth the extra bytes (cookbook
+    /// recipe 4). Recording-only: unlike `hash_tick`, this doesn't feed
+    /// an in-memory cross-peer comparison — Level 2/3 divergence-finding
+    /// isn't designed yet (`bisect.rs`'s own note), so a session without
+    /// `record_to(path)` computing this is a no-op beyond the hash call
+    /// itself. The UI derives entity/field agreement directly from the
+    /// recorded `EntityHash`/`FieldHash` frames in a `.foldback` file.
+    pub fn hash_entity(
+        &mut self,
+        tick: u64,
+        entity_id: u64,
+        state_bytes: &[u8],
+    ) -> Result<(), Error> {
+        let hash = hash_bytes(state_bytes);
+        self.record_peer_entity_hash(tick, self.local_peer_id, entity_id, hash)
+    }
+
+    /// Record an entity hash reported by any peer (including this
+    /// session's own, via `hash_entity`) — the `record_peer_hash`
+    /// counterpart for Level 2, used by a recording session aggregating
+    /// multiple peers' entity data (see `examples/ggrs-demo`-style usage).
+    pub fn record_peer_entity_hash(
+        &mut self,
+        tick: u64,
+        peer_id: u16,
+        entity_id: u64,
+        hash: u64,
+    ) -> Result<(), Error> {
+        if let Some(w) = &mut self.writer {
+            Frame::EntityHash {
+                tick,
+                peer_id,
+                entity_id,
+                hash,
+            }
+            .write_to(w)?;
+        }
+        Ok(())
+    }
+
+    /// Level 3: hash one field's value and record it as this session's
+    /// own (`local_peer_id`'s) report, keeping the raw `value_bytes` too
+    /// (cookbook recipe 5) — this is what lets the UI show "3.14159 vs
+    /// 3.14158" instead of just two unequal hashes. Recording-only, same
+    /// caveat as `hash_entity`.
+    pub fn hash_field(
+        &mut self,
+        tick: u64,
+        entity_id: u64,
+        field_name: &str,
+        value_bytes: &[u8],
+    ) -> Result<(), Error> {
+        let hash = hash_bytes(value_bytes);
+        self.record_peer_field_hash(
+            tick,
+            self.local_peer_id,
+            entity_id,
+            field_name,
+            hash,
+            value_bytes,
+        )
+    }
+
+    /// Record a field hash reported by any peer — the `record_peer_hash`
+    /// counterpart for Level 3.
+    pub fn record_peer_field_hash(
+        &mut self,
+        tick: u64,
+        peer_id: u16,
+        entity_id: u64,
+        field_name: &str,
+        hash: u64,
+        value_bytes: &[u8],
+    ) -> Result<(), Error> {
+        if let Some(w) = &mut self.writer {
+            Frame::FieldHash {
+                tick,
+                peer_id,
+                entity_id,
+                field_name: field_name.to_string(),
+                hash,
+                value: value_bytes.to_vec(),
+            }
+            .write_to(w)?;
+        }
+        Ok(())
+    }
+
     /// Drains and returns hashes produced locally since the last call —
     /// what the game is expected to send to its peers over its own
     /// netcode channel.
@@ -300,6 +391,79 @@ mod tests {
             s.record_peer_hash(tick, 1, 100 + tick).unwrap();
         }
         assert_eq!(s.check_divergence(), None);
+    }
+
+    #[test]
+    fn hash_entity_writes_an_entity_hash_frame_when_recording() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("entity.foldback");
+        {
+            let mut s = Session::builder()
+                .peer_count(2)
+                .record_to(&path)
+                .build()
+                .unwrap();
+            s.hash_entity(4821, 3, b"player 3's component state")
+                .unwrap();
+        }
+        let mut file = File::open(&path).unwrap();
+        Header::read_from(&mut file).unwrap();
+        let reader = crate::format::FrameReader::new(file);
+        let frames: Vec<_> = reader.map(|f| f.unwrap()).collect();
+        assert!(matches!(
+            frames[0],
+            Frame::EntityHash {
+                tick: 4821,
+                peer_id: 0,
+                entity_id: 3,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn hash_field_writes_a_field_hash_frame_with_raw_value_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("field.foldback");
+        {
+            let mut s = Session::builder()
+                .peer_count(2)
+                .record_to(&path)
+                .build()
+                .unwrap();
+            s.hash_field(4821, 3, "velocity.x", &12.375f32.to_le_bytes())
+                .unwrap();
+        }
+        let mut file = File::open(&path).unwrap();
+        Header::read_from(&mut file).unwrap();
+        let reader = crate::format::FrameReader::new(file);
+        let frames: Vec<_> = reader.map(|f| f.unwrap()).collect();
+        match &frames[0] {
+            Frame::FieldHash {
+                tick,
+                peer_id,
+                entity_id,
+                field_name,
+                value,
+                ..
+            } => {
+                assert_eq!(*tick, 4821);
+                assert_eq!(*peer_id, 0);
+                assert_eq!(*entity_id, 3);
+                assert_eq!(field_name, "velocity.x");
+                assert_eq!(value, &12.375f32.to_le_bytes());
+            }
+            other => panic!("expected FieldHash, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn entity_and_field_hashing_are_no_ops_without_recording() {
+        // No in-memory Level 2/3 divergence tracking exists yet — without
+        // `record_to(path)`, these calls only compute the hash and return.
+        let mut s = Session::builder().peer_count(2).build().unwrap();
+        s.hash_entity(0, 0, b"x").unwrap();
+        s.hash_field(0, 0, "f", b"x").unwrap();
     }
 
     #[test]
