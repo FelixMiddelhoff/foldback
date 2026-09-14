@@ -1,5 +1,9 @@
 # Foldback
 
+![Foldback UI opening a real recorded session, scrubbing between a clean tick and the exact tick two peers diverged](assets/foldback-ui-demo.gif)
+
+*The UI opening a real `.foldback` file recorded by `examples/ggrs-demo` (an actual GGRS rollback session with an injected desync) — scrubbing from a clean tick to the exact tick it diverged. UI-only for now; a fuller demo showing the simulation itself running is future work.*
+
 A desync/divergence debugger for lockstep/rollback multiplayer games: hash simulation state on a schedule, compare hashes across peers, and bisect down to the tick and (with opt-in field hashing) the field where two clients' simulations diverged.
 
 Status: Phase 0 (core + CLI) and Phase 1 (UI v1) done. `foldback-core` (hashing, session file format, Level 1 bisection), `foldback-cli` (`analyze`, `ci-check`), and `foldback-ui` (a Tauri desktop app — open or drag a `.foldback` file, see the tick timeline and peer comparison) are implemented and tested, with `examples/ggrs-demo` proving the whole chain against a real GGRS rollback session. No live mode or engine binding beyond raw Rust and GGRS yet.
