@@ -12,10 +12,12 @@ thiserror = "1"
 tungstenite = { version = "0.30", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+foldback-derive = { path = "../foldback-derive", optional = true }
 
 [features]
 default = []
 live = ["dep:tungstenite", "dep:serde", "dep:serde_json"]
+derive = ["dep:foldback-derive"]
 
 [dev-dependencies]
 proptest = "1"

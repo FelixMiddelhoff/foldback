@@ -253,6 +253,21 @@ impl Session {
         Ok(())
     }
 
+    /// Level 3, ergonomic form: hashes every `#[foldback(hash)]`-marked
+    /// field on `value` in one call (cookbook recipe 5) — `value`'s type
+    /// implements [`crate::hashable::FoldbackHash`] via
+    /// `#[derive(FoldbackHash)]` (feature `derive`), generated rather
+    /// than hand-written. Equivalent to calling [`Session::hash_field`]
+    /// once per marked field yourself.
+    pub fn hash_fields<T: crate::hashable::FoldbackHash>(
+        &mut self,
+        tick: u64,
+        entity_id: u64,
+        value: &T,
+    ) -> Result<(), Error> {
+        value.write_hashed_fields(self, tick, entity_id)
+    }
+
     /// Drains and returns hashes produced locally since the last call —
     /// what the game is expected to send to its peers over its own
     /// netcode channel.

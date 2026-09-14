@@ -1062,6 +1062,7 @@ dependencies = [
 name = "foldback-core"
 version = "0.0.1"
 dependencies = [
+ "foldback-derive",
  "proptest",
  "serde",
  "serde_json",
@@ -1070,6 +1071,15 @@ dependencies = [
  "tungstenite",
  "xxhash-rust",
  "zstd",
+]
+
+[[package]]
+name = "foldback-derive"
+version = "0.0.1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

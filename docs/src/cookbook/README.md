@@ -1,6 +1,6 @@
 # Cookbook
 
-Short, copy-pasteable recipes in the target API shape. Recipes 1–2 (and the file-recording variant of recipe 6) reflect what's actually shipped as of Phase 0; everything else is the target shape being built toward — check the status column before assuming a recipe compiles against `main` today.
+Short, copy-pasteable recipes in the target API shape. Recipes 1, 2, 3, 4, 5, and 7 are shipped (Phase 0/2); everything else is the target shape being built toward — check the status column before assuming a recipe compiles against `main` today.
 
 Each Rust recipe leaves out error handling you'd keep in real code (`Result` unwraps stand in for real handling).
 
@@ -8,11 +8,11 @@ Each Rust recipe leaves out error handling you'd keep in real code (`Result` unw
 |---|---|---|
 | 1 | [Minimal integration](#1-minimal-integration) | **Shipped** (Phase 0) |
 | 2 | [CI gate](#2-ci-gate) | **Shipped** (`finish()`/`Session` API); `foldback ci-check --replay` sim-orchestration mode not yet built |
-| 3 | [GGRS/Bevy integration](#3-ggrsbevy-integration) | Planned, Phase 2 |
-| 4 | [Per-entity hashing](#4-per-entity-hashing) | Planned, Phase 2 (Level 2) |
-| 5 | [Per-field hashing](#5-per-field-hashing) | Planned, Phase 2 (Level 3) |
+| 3 | [GGRS/Bevy integration](#3-ggrsbevy-integration) | **Shipped** (Phase 2) — `foldback_rs::ggrs::checksum`/`record_desync`, not the originally-sketched `attach_foldback` (GGRS has no hookable checksum callback to wrap) |
+| 4 | [Per-entity hashing](#4-per-entity-hashing) | **Shipped** (Phase 2) |
+| 5 | [Per-field hashing](#5-per-field-hashing) | **Shipped** (Phase 2) — `#[derive(FoldbackHash)]`, feature `derive` |
 | 6 | [Reading a `.foldback` file programmatically](#6-reading-a-foldback-file-programmatically) | Frame reading: **shipped** (`foldback_core::format::FrameReader`). `bisect()` convenience wrapper: not yet built as shown |
-| 7 | [Live mode](#7-live-mode) | Planned, Phase 2 |
+| 7 | [Live mode](#7-live-mode) | **Shipped** (Phase 2) — game side (`foldback_core::live::LiveServer`) and UI side (`foldback-ui`'s "Connect live…") both built and proven against each other |
 | 8 | [Unity integration](#8-unity-integration) | Planned, Phase 3 |
 | 9 | [Godot integration](#9-godot-integration) | Planned, Phase 4 |
 | 10 | [Annotating the timeline](#10-annotating-the-timeline) | `Metadata` frame exists in the file format; a convenience `session.annotate()` wrapper not yet built |
@@ -67,20 +67,23 @@ Today, run `foldback ci-check <file>` against an already-recorded `.foldback` fi
 
 ## 3. GGRS/Bevy integration
 
-`foldback-rs` hooks GGRS's own checksum callback so there's no duplicate simulation loop to maintain — Foldback rides the hash GGRS already computes for its own rollback correctness checks, upgrading it from "yes/no matched" to "here's exactly what diverged."
+GGRS has no hookable "checksum callback" to wrap — a game computes its own checksum and hands it to GGRS via `GameStateCell::save(frame, state, checksum)`, and for a real networked session GGRS emits `GgrsEvent::DesyncDetected { local_checksum, remote_checksum, .. }` when two peers' checksums for a frame disagree. `foldback_rs::ggrs` (feature `ggrs`) is the real integration point — two small helpers, not a session-wrapping extension trait:
 
 ```rust
-use foldback_rs::ggrs::FoldbackGgrsExt;
+use foldback_rs::ggrs::{checksum, record_desync};
 
-let mut ggrs_session = ggrs::SessionBuilder::<MyConfig>::new()
-    .with_num_players(2)?
-    .start_p2p_session(socket)?;
+// At the point your game already computes a checksum for GameStateCell::save:
+let cs = checksum(&state_bytes); // Foldback's hash, widened to GGRS's u128 checksum type
+cell.save(frame, Some(state), Some(cs));
 
-let mut foldback = Session::builder().tick_rate_hz(60).peer_count(2).build()?;
-ggrs_session.attach_foldback(&mut foldback); // wraps the existing checksum callback
-
-// GGRS's normal advance_frame loop is unchanged — foldback observes, doesn't intercept.
+// When GGRS's own event loop reports a desync it already detected over the network:
+if let GgrsEvent::DesyncDetected { frame, local_checksum, remote_checksum, .. } = event {
+    record_desync(&mut foldback_session, frame as u64, local_peer_id, remote_peer_id,
+                   local_checksum, remote_checksum)?;
+}
 ```
+
+`SyncTestSession` (single-process — see `examples/ggrs-demo`) doesn't need this bridge: it catches a checksum mismatch internally, no cross-peer network exchange to bridge.
 
 ---
 
@@ -94,28 +97,28 @@ for (entity_id, component_bytes) in world.iter_entities_serialized() {
 }
 ```
 
-Can be added incrementally alongside `hash_tick` — Level 1 and Level 2 aren't mutually exclusive; the bisection engine uses whichever levels are present in a given session and reports "enable per-entity hashing for a finer result" when only Level 1 data exists.
+Can be added incrementally alongside `hash_tick` — Level 1 and Level 2 aren't mutually exclusive; the bisection engine uses whichever levels are present in a given session and reports "enable per-entity hashing for a finer result" when only Level 1 data exists. See `examples/ggrs-demo` for a real recording using this.
 
 ---
 
 ## 5. Per-field hashing
 
-The finest level — needs a derive macro since hand-writing per-field calls for every struct doesn't scale.
-
 ```rust
+use foldback_core::FoldbackHash;
+
 #[derive(FoldbackHash)]
 struct PlayerState {
     #[foldback(hash)]
-    position: Vec3,
+    position: [f32; 3],
     #[foldback(hash)]
-    velocity: Vec3,
-    debug_name: String, // unmarked — not hashed, flagged by `foldback lint` as untracked
+    velocity: [f32; 3],
+    debug_name: String, // unmarked — not hashed, named in PlayerState::UNTRACKED_FIELDS
 }
 
 session.hash_fields(tick, entity_id, &player_state)?; // macro-generated per-field hashing + value capture
 ```
 
-**Opt-in by default** — see [RFC-0003](../project/rfcs/0003-field-hashing-opt-in.md) for why. `#[derive(FoldbackHash)]` hashes nothing until a field is explicitly marked `#[foldback(hash)]`.
+**Opt-in by default** — see [RFC-0003](../project/rfcs/0003-field-hashing-opt-in.md) for why. `#[derive(FoldbackHash)]` hashes nothing until a field is explicitly marked `#[foldback(hash)]`; an unmarked field's name lands in the generated `UNTRACKED_FIELDS` constant rather than silently disappearing either way. A field's type needs a `foldback_core::hashable::FieldBytes` impl to be hash-able — built for the common fixed-size numeric primitives and fixed-size arrays of them; implement it yourself for a custom vector/quaternion type.
 
 ---
 
@@ -143,17 +146,26 @@ A `bisect()` convenience wrapper that returns the same text report `foldback ana
 
 ## 7. Live mode
 
-Same `Session` API, pointed at a socket instead of a file — the UI-facing half of [the protocol spec's live-mode transport](../reference/protocol-spec.md#2-live-mode-transport). Not implemented yet (Phase 2).
+A separate `LiveServer` type used alongside `Session`, not a `SessionBuilder` option — a WebSocket connection has its own hello/reconnect lifecycle ([protocol spec §2](../reference/protocol-spec.md#2-live-mode-transport)), not a plain byte sink the way a recording file is.
 
 ```rust
-let mut session = Session::builder()
-    .tick_rate_hz(60)
-    .peer_count(2)
-    .live_endpoint("127.0.0.1:9871") // starts listening, non-blocking
-    .build()?;
+use foldback_core::live::LiveServer;
+use foldback_core::format::Frame;
+
+// Once, at startup — binds immediately (a port-in-use error surfaces
+// synchronously), a background thread owns accept/handshake/reconnect.
+let live = LiveServer::bind("127.0.0.1:9871", 60, 2, build_id)?;
+
+let mut session = Session::builder().tick_rate_hz(60).peer_count(2).build()?;
+
+// each tick:
+session.hash_tick(tick, &state_bytes)?;
+for pending in session.take_pending_hashes() {
+    live.send_frame(Frame::TickHash { tick: pending.tick, peer_id: 0, hash: pending.hash });
+}
 ```
 
-Drag-and-drop a `.foldback` file onto the UI for offline analysis, or point it at `ws://127.0.0.1:9871` for live — same views either way.
+`send_frame` never blocks the caller (an unbounded channel send) and silently drops frames if no UI is connected yet. In the UI: drag-and-drop a `.foldback` file for offline analysis, or click "Connect live…" and give it `ws://127.0.0.1:9871` — same timeline/peer-comparison/drill-down views either way. See `examples/live-demo` for a real end-to-end proof (a toy sim streaming a real injected divergence, caught live in the actual UI).
 
 ---
 
