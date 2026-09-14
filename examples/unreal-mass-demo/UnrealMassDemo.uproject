@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "Minimal Unreal project proving bindings/unreal's Mass Entity integration path (design doc §6) against a real engine and a real MassEntity setup — the second binding-verification harness alongside examples/unreal-demo's custom fixed-tick lockstep toy.",
+	"Modules": [
+		{
+			"Name": "UnrealMassDemo",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "Foldback",
+			"Enabled": true
+		}
+	],
+	"AdditionalPluginDirectories": [
+		"../../bindings"
+	]
+}

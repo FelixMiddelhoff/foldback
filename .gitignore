@@ -42,4 +42,10 @@ examples/unreal-demo/Intermediate/
 examples/unreal-demo/Saved/
 examples/unreal-demo/DerivedDataCache/
 examples/unreal-demo/*.sln
+examples/unreal-mass-demo/Binaries/
+examples/unreal-mass-demo/Intermediate/
+examples/unreal-mass-demo/Saved/
+examples/unreal-mass-demo/DerivedDataCache/
+examples/unreal-mass-demo/*.sln
+examples/unreal-mass-demo/Plugins/Foldback/
 examples/unreal-demo/Plugins/Foldback/

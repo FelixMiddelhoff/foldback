@@ -13,7 +13,7 @@ bindings/       Unity, Unreal (foldback-sys's C ABI), Godot (direct gdext)
 
 `foldback-core` is the only place the actual logic lives. Every other surface — the CLI, the UI, every engine binding — is a thin wrapper around it, so a bug fix or a bisection-engine improvement lands everywhere at once instead of needing to be ported four times. Godot's binding calls `foldback-core` directly through `gdext` rather than through `foldback-sys`'s C ABI, since `gdext` generates its own GDExtension registration — Unity and (when built) Unreal go through the C ABI because C#/C++ have no GDExtension-equivalent of their own.
 
-## What exists today (Phases 0–4)
+## What exists today (Phases 0–5)
 
 - `foldback-core`: xxHash3 hashing, the `.foldback` file format (read + write), a bounded retention ring buffer, zstd snapshot compression, Level 1/2/3 (per-tick/entity/field) bisection, live-mode transport, and the `#[derive(FoldbackHash)]` opt-in field-hashing macro.
 - `foldback-cli`: `analyze` and `ci-check` subcommands, reading `.foldback` files.
@@ -21,13 +21,12 @@ bindings/       Unity, Unreal (foldback-sys's C ABI), Godot (direct gdext)
 - `foldback-rs`: GGRS bridge (`checksum`/`record_desync`).
 - `foldback-sys` + `bindings/unity`: a full C ABI (Level 1/2/3) and a real Unity UPM package, verified against IL2CPP AOT compilation in CI.
 - `bindings/godot`: a GDExtension addon (`gdext`), verified against a real headless Godot 4.7.2 engine in CI.
-- `bindings/unreal`: `UFoldbackSubsystem` + Blueprint wrappers over the C ABI, verified against a real, locally-built Unreal Engine 5.8.2 (no hosted CI leg — Unreal has no scriptable install path, see `bindings/unreal/README.md`).
-- `examples/minimal-rust`, `examples/ggrs-demo`, `examples/live-demo`, `examples/unity-demo`, `examples/godot-demo`, `examples/unreal-demo`: real, runnable proof for each of the above, not just compiled code.
+- `bindings/unreal`: `UFoldbackSubsystem` + Blueprint wrappers over the C ABI, `UPROPERTY(meta=(FoldbackHash))` reflective hashing (Editor/Development-Editor builds only — see `bindings/unreal/README.md`), and a Mass Entity integration path (`UFoldbackHashProcessor`) — verified against a real, locally-built Unreal Engine 5.8.2 (no hosted CI leg — Unreal has no scriptable install path, see `bindings/unreal/README.md`).
+- `examples/minimal-rust`, `examples/ggrs-demo`, `examples/live-demo`, `examples/unity-demo`, `examples/godot-demo`, `examples/unreal-demo`, `examples/unreal-mass-demo`: real, runnable proof for each of the above, not just compiled code.
 
 ## What's planned next
 
-- **Unreal — reflective hashing + Mass Entity integration**, the remaining two slices of Phase 5.
-- **Ongoing**: auto/reflective hashing per binding, MVP/launch-gate items.
+- **Ongoing**: auto/reflective hashing per binding (Bevy first, per the reflective-hashing plan), MVP/launch-gate items.
 
 Full roadmap and week-by-week reasoning: the project's own planning set (linked from [Project](../project/testing.md) pages) — this site tracks `main`, so it describes what's actually shipped, not the plan for what will be.
 

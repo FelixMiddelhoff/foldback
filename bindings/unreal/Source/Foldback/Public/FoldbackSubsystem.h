@@ -52,6 +52,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Foldback")
 	bool HashField(int64 Tick, int64 EntityId, const FString& FieldName, const TArray<uint8>& Value);
 
+	/**
+	 * Reflective Level 3: hashes every `UPROPERTY(meta=(FoldbackHash))`-tagged
+	 * field on Object's class, one HashField call per tagged field — see
+	 * FFoldbackReflectiveHasher. Editor/Development-Editor builds only
+	 * (WITH_METADATA); returns false with GetLastError() unset but a logged
+	 * error otherwise (see FoldbackReflection.h for why).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Foldback")
+	bool HashTaggedFields(int64 Tick, int64 EntityId, UObject* Object);
+
 	UFUNCTION(BlueprintCallable, Category = "Foldback")
 	bool RecordPeerFieldHash(
 		int64 Tick, int32 PeerId, int64 EntityId, const FString& FieldName, int64 Hash, const TArray<uint8>& Value);

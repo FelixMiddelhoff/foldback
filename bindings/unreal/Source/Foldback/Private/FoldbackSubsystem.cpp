@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #include "FoldbackSubsystem.h"
 
+#include "FoldbackReflection.h"
+
 void UFoldbackSubsystem::Deinitialize()
 {
 	Session = FFoldbackSession();
@@ -42,6 +44,16 @@ bool UFoldbackSubsystem::RecordPeerEntityHash(int64 Tick, int32 PeerId, int64 En
 bool UFoldbackSubsystem::HashField(int64 Tick, int64 EntityId, const FString& FieldName, const TArray<uint8>& Value)
 {
 	return Session.HashField(static_cast<uint64>(Tick), static_cast<uint64>(EntityId), FieldName, Value);
+}
+
+bool UFoldbackSubsystem::HashTaggedFields(int64 Tick, int64 EntityId, UObject* Object)
+{
+	if (!Object)
+	{
+		return false;
+	}
+	return FFoldbackReflectiveHasher::HashTaggedFields(
+		Session, static_cast<uint64>(Tick), static_cast<uint64>(EntityId), Object);
 }
 
 bool UFoldbackSubsystem::RecordPeerFieldHash(
