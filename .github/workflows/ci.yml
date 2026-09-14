@@ -121,16 +121,15 @@ jobs:
   # Support (IL2CPP) module, building and running examples/unity-demo
   # (Assets/Il2cppVerify.cs runs the same checks as the C# harness above,
   # but inside a real IL2CPP AOT player, which the Editor's own Mono
-  # runtime never exercises). Locally proven working end to end on a real
-  # Unity 6000.6.0f1 + IL2CPP install before this job was written (build
-  # succeeded, the built player ran and printed PASS) — this job codifies
-  # that exact sequence for CI, but hasn't itself completed a real run yet:
-  # it needs `UNITY_EMAIL`/`UNITY_PASSWORD` (or
-  # `UNITY_LICENSE`) repository secrets for a Unity license, which only a
-  # maintainer with a Unity account can add (see foldback-ci-release-plan.md
-  # §4.5's "secrets set up once, referenced by name" pattern) — treat this
-  # job as unverified-in-CI until its first real run confirms both the
-  # license activation and the `buildalon/unity-setup` invocation below.
+  # runtime never exercises). Proven working end to end both locally and
+  # here in CI (real UNITY_EMAIL/UNITY_PASSWORD secrets, real
+  # windows-latest run, real PASS output) — closes P1's Phase-3
+  # requirement for real.
+  #
+  # `cache-installation: true` below caches the Hub+Editor+module install
+  # between runs — a cache *miss* (first run ever, or after 7 days of
+  # disuse, since GitHub evicts unused cache entries) is still a slow,
+  # multi-gigabyte download, but every run after that should be fast.
   bindings-unity-il2cpp:
     name: bindings/unity IL2CPP player (windows-latest)
     needs: fmt-and-lint
@@ -149,6 +148,12 @@ jobs:
         with:
           unity-version: "6000.6.0f1"
           modules: windows-il2cpp
+          # Caches the Hub+Editor+module install between runs (the action's
+          # own built-in support, not a hand-rolled actions/cache step —
+          # it knows which paths and Hub-state files actually need
+          # caching for a subsequent run to recognize the install as
+          # already done, which a naive directory-only cache wouldn't).
+          cache-installation: true
       - uses: buildalon/activate-unity-license@v2
         with:
           # Personal license (the default `license: personal`) only needs
