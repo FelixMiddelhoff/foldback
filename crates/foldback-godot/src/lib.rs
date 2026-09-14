@@ -27,7 +27,9 @@
 //! all equality-based divergence checking needs; a hash may display as
 //! negative in GDScript, which is expected and harmless.
 
-use godot::classes::RefCounted;
+mod reflection;
+
+use godot::classes::{Object, RefCounted};
 use godot::prelude::*;
 
 use foldback_core::session::Session;
@@ -280,6 +282,67 @@ impl FoldbackSession {
                 .finish_recording()
                 .map_err(|e| format!("finish_recording failed: {e}"))
         })
+    }
+
+    /// Reflective hashing (foldback-reflective-hashing.md §2.3): hashes
+    /// every `foldback_`-prefixed property reachable from `target`
+    /// (re-checked at each nested Object — see `reflection.rs`'s module
+    /// docs) without hand-written `hash_field` calls per field. Returns
+    /// the `(path, hash)` pairs actually recorded as an Array of
+    /// `{"path": String, "hash": int}` dicts — empty on error, with
+    /// `get_last_error()` set, matching this class's existing
+    /// status-reporting convention.
+    #[func]
+    fn hash_reflected(
+        &mut self,
+        tick: i64,
+        entity_id: i64,
+        field_name_prefix: GString,
+        target: Gd<Object>,
+    ) -> Array<Dictionary<Variant, Variant>> {
+        let Some(session) = self.inner.as_mut() else {
+            self.last_error = "session not configured — call configure() first".into();
+            return Array::new();
+        };
+        match reflection::hash_reflected(
+            session,
+            tick as u64,
+            entity_id as u64,
+            &field_name_prefix.to_string(),
+            target,
+        ) {
+            Ok(preview) => {
+                self.last_error.clear();
+                let mut out = Array::new();
+                for (path, hash) in preview {
+                    let mut d = Dictionary::new();
+                    d.set("path", path);
+                    d.set("hash", hash as i64);
+                    out.push(&d);
+                }
+                out
+            }
+            Err(msg) => {
+                self.last_error = msg;
+                Array::new()
+            }
+        }
+    }
+
+    /// The reflective-hashing visibility tool (§4): every `foldback_`-
+    /// prefixed ("tracked") and non-prefixed ("untracked") property on
+    /// `target`'s own property list, as `{"tracked": PackedStringArray,
+    /// "untracked": PackedStringArray}` — doesn't need a configured
+    /// session, since it doesn't hash anything.
+    #[func]
+    fn list_tracked(&self, target: Gd<Object>) -> Dictionary<Variant, Variant> {
+        let (tracked, untracked) = reflection::list_tracked(&target);
+        let tracked_arr: PackedStringArray = tracked.iter().map(GString::from).collect();
+        let untracked_arr: PackedStringArray = untracked.iter().map(GString::from).collect();
+        let mut out = Dictionary::new();
+        out.set("tracked", &tracked_arr);
+        out.set("untracked", &untracked_arr);
+        out
     }
 
     #[func]

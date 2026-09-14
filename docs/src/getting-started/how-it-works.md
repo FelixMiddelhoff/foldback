@@ -26,7 +26,7 @@ bindings/       Unity, Unreal (foldback-sys's C ABI), Godot (direct gdext)
 
 ## What's planned next
 
-- **Ongoing**: auto/reflective hashing per binding — Bevy is done (walker, per-field opt-in, depth guard, `foldback-cli lint`, an `egui` preview panel, a benchmark — see [Auto/Reflective Hashing](../integrations/reflective-hashing.md) for what's genuinely closed vs. deliberately deferred); Unity/Godot haven't started. MVP/launch-gate items also open.
+- **Ongoing**: auto/reflective hashing — done for all three engines (Bevy, Unity, Godot: each has a walker, opt-in enforcement, a depth guard, visibility tooling, and a benchmark; see [Auto/Reflective Hashing](../integrations/reflective-hashing.md) for what's genuinely closed vs. deliberately different per engine vs. still open, including Unity's unconfirmed-under-IL2CPP caveat). MVP/launch-gate items still open.
 
 Full roadmap and week-by-week reasoning: the project's own planning set (linked from [Project](../project/testing.md) pages) — this site tracks `main`, so it describes what's actually shipped, not the plan for what will be.
 

@@ -36,7 +36,7 @@ Engine bindings sit outside the core repo boundary conceptually but ship from th
 
 - `foldback-sys` — raw C ABI header + Rust FFI crate (source of truth for the header, generated via `cbindgen`). **Shipped** (Level 1/2/3), Phase 3.
 - `foldback-rs` — idiomatic Rust wrapper, GGRS/Bevy integration helpers. **Shipped**, Phase 2.
-- Unity (`bindings/unity`), Godot (`bindings/godot`), and Unreal (`bindings/unreal`) bindings — **shipped**, Phases 3–5, all complete including Unreal's reflective-hashing and Mass Entity slices. See their respective [integration pages](../integrations/rust-ggrs.md).
+- Unity (`bindings/unity`), Godot (`bindings/godot`), and Unreal (`bindings/unreal`) bindings — **shipped**, Phases 3–5, all complete including reflective hashing (every engine, including Bevy, now has a walker — see [Auto/Reflective Hashing](../integrations/reflective-hashing.md)) and Unreal's Mass Entity slice. See their respective [integration pages](../integrations/rust-ggrs.md).
 
 ## Repo layout
 
