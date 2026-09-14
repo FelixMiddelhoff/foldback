@@ -275,6 +275,24 @@ impl Session {
         std::mem::take(&mut self.pending)
     }
 
+    /// The number of hashes currently pending, without draining them —
+    /// lets a caller size a send buffer before draining. Used by
+    /// `foldback-sys`'s FFI surface, where the caller owns a fixed-size
+    /// buffer rather than an unbounded `Vec`.
+    pub fn pending_hash_count(&self) -> usize {
+        self.pending.len()
+    }
+
+    /// Drains at most `max` pending hashes, oldest first, leaving any
+    /// remainder pending for a later call — the bounded-buffer
+    /// counterpart to [`Session::take_pending_hashes`], for FFI callers
+    /// that hand in a fixed-capacity output array rather than receiving
+    /// an unbounded `Vec`.
+    pub fn take_pending_hashes_up_to(&mut self, max: usize) -> Vec<PendingHash> {
+        let n = self.pending.len().min(max);
+        self.pending.drain(0..n).collect()
+    }
+
     /// Returns the earliest tick, not already reported by a previous call,
     /// where two or more reporting peers' hashes disagree. `None` if no
     /// new divergence exists yet — ticks with fewer than 2 peers reported

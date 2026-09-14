@@ -13,7 +13,7 @@ Each Rust recipe leaves out error handling you'd keep in real code (`Result` unw
 | 5 | [Per-field hashing](#5-per-field-hashing) | **Shipped** (Phase 2) — `#[derive(FoldbackHash)]`, feature `derive` |
 | 6 | [Reading a `.foldback` file programmatically](#6-reading-a-foldback-file-programmatically) | Frame reading: **shipped** (`foldback_core::format::FrameReader`). `bisect()` convenience wrapper: not yet built as shown |
 | 7 | [Live mode](#7-live-mode) | **Shipped** (Phase 2) — game side (`foldback_core::live::LiveServer`) and UI side (`foldback-ui`'s "Connect live…") both built and proven against each other |
-| 8 | [Unity integration](#8-unity-integration) | Planned, Phase 3 |
+| 8 | [Unity integration](#8-unity-integration) | **Shipped** (`bindings/unity`, `HashTick`/`RecordPeerHash`/`TakePendingHashes`/`CheckDivergence`/`Finish`), Phase 3 — verified against the real native library via a .NET P/Invoke harness. Two named gaps: the IL2CPP CI leg (needs a real Unity install, not available where this was built) and Level 2/3 hashing across the FFI boundary. `[FoldbackHash]` reflection below is unbuilt, tracked separately as the reflective-hashing stretch |
 | 9 | [Godot integration](#9-godot-integration) | Planned, Phase 4 |
 | 10 | [Annotating the timeline](#10-annotating-the-timeline) | `Metadata` frame exists in the file format; a convenience `session.annotate()` wrapper not yet built |
 
@@ -171,7 +171,7 @@ for pending in session.take_pending_hashes() {
 
 ## 8. Unity integration
 
-Not implemented yet (Phase 3).
+Shipped (Phase 3), Level 1 (per-tick) only — see [docs/integrations/unity.md](../integrations/unity.md) for status and the two named gaps (IL2CPP CI leg, Level 2/3 across the FFI boundary).
 
 ```csharp
 using Foldback;

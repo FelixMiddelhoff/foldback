@@ -82,6 +82,44 @@ jobs:
         env:
           RUSTFLAGS: "-C opt-level=3"
 
+  # Builds the real foldback-sys native library and runs the Unity C#
+  # binding's own P/Invoke harness (bindings/unity/Tests~/FoldbackSys.Tests)
+  # against it — proves the C# struct marshaling/error handling actually
+  # works against real compiled native code, not just that the C# compiles.
+  # NOT the IL2CPP CI leg the risk register (P1) calls a Phase-3
+  # "definition of done" requirement — that needs an actual Unity Editor
+  # install with the IL2CPP module, which this job deliberately doesn't
+  # attempt (a real, currently-open gap, not silently dropped — see
+  # docs/src/integrations/unity.md). This job runs the Mono-equivalent .NET
+  # P/Invoke path only.
+  bindings-unity-cs:
+    name: bindings/unity C# harness (${{ matrix.os }})
+    needs: fmt-and-lint
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: cargo build -p foldback-sys
+      - run: dotnet build -c Release bindings/unity/Tests~/FoldbackSys.Tests
+      - name: Copy native library next to the test harness (Linux)
+        if: runner.os == 'Linux'
+        run: cp target/debug/libfoldback_sys.so bindings/unity/Tests~/FoldbackSys.Tests/bin/Release/net8.0/
+      - name: Copy native library next to the test harness (macOS)
+        if: runner.os == 'macOS'
+        run: cp target/debug/libfoldback_sys.dylib bindings/unity/Tests~/FoldbackSys.Tests/bin/Release/net8.0/
+      - name: Copy native library next to the test harness (Windows)
+        if: runner.os == 'Windows'
+        run: cp target/debug/foldback_sys.dll bindings/unity/Tests~/FoldbackSys.Tests/bin/Release/net8.0/
+        shell: bash
+      - run: dotnet bindings/unity/Tests~/FoldbackSys.Tests/bin/Release/net8.0/FoldbackSys.Tests.dll
+
   # cli-golden: golden-file tests against checked-in fixtures already run
   # as part of `core-test`'s `cargo test --workspace` (crates/foldback-cli
   # /tests/golden.rs) — no separate job needed while that stays fast

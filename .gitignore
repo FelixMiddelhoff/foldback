@@ -3,3 +3,5 @@
 *.pdb
 /docs/book
 crates/foldback-ui/gen/
+bindings/unity/Tests~/FoldbackSys.Tests/bin/
+bindings/unity/Tests~/FoldbackSys.Tests/obj/

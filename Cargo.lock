@@ -1093,6 +1093,10 @@ dependencies = [
 [[package]]
 name = "foldback-sys"
 version = "0.0.1"
+dependencies = [
+ "foldback-core",
+ "tempfile",
+]
 
 [[package]]
 name = "foldback-ui"

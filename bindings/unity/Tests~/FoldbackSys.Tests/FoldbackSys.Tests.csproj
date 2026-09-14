@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A plain console harness, not a Unity project — proves the Runtime/*.cs
+    P/Invoke binding actually works against a real built foldback_sys native
+    library, without needing the Unity Editor. `Tests~` (the trailing `~`)
+    is Unity's own convention for "ignore this folder during asset import",
+    so this doesn't interfere with the package when consumed by Unity.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Runtime\*.cs" />
+  </ItemGroup>
+
+</Project>

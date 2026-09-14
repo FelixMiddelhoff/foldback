@@ -9,3 +9,7 @@ repository.workspace = true
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
+foldback-core = { path = "../foldback-core" }
+
+[dev-dependencies]
+tempfile = "3"
