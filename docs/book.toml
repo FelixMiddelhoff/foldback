@@ -1,0 +1,15 @@
+[book]
+title = "Foldback"
+description = "A desync/divergence debugger for lockstep/rollback multiplayer games"
+authors = ["Felix Middelhoff and Foldback contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/FelixMiddelhoff/foldback"
+edit-url-template = "https://github.com/FelixMiddelhoff/foldback/edit/main/docs/{path}"
+default-theme = "navy"
+preferred-dark-theme = "navy"
+
+[output.html.search]
+enable = true

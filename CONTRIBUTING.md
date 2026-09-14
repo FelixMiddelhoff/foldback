@@ -28,7 +28,16 @@ Any change touching `foldback-core`'s hashing/serialization path, `foldback-sys`
 1. Open an issue first for anything non-trivial (new feature, API change, protocol change) — cheap to discuss before code exists, expensive to discuss after.
 2. Keep PRs scoped to one change. A protocol version bump touching core+CLI+UI+bindings together is fine (monorepo, lockstep release); an unrelated drive-by refactor bundled into a feature PR is not.
 3. Fill in the PR template's changelog-relevant-description checkbox — it feeds the changelog automation.
-4. CI must pass (fmt, clippy, tests, and the determinism job once real hashing code exists) before merge.
+4. CI must pass (fmt, clippy, tests, and the `determinism` cross-platform job) before merge.
+
+## Documentation
+
+Docs live under `docs/src/` (mdBook), deployed to GitHub Pages on every merge to `main` touching `docs/**`. Style conventions: [`docs/STYLE.md`](docs/STYLE.md). Build locally with:
+
+```bash
+cargo install mdbook
+mdbook serve docs
+```
 
 ## Code of Conduct
 
