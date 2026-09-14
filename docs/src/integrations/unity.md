@@ -58,7 +58,14 @@ Landed: `[FoldbackHash]` on a field or property (`Runtime/FoldbackHashAttribute.
 
 Verified against the real, built native library the same way the rest of this page is: `bindings/unity/Tests~/FoldbackSys.Tests` exercises the walker, the sorted-container rule, cycle detection, the depth guard, and `ListTracked` — all pass, including a printed (not CI-gated) explicit-vs-reflective timing comparison, ~3.5x overhead for the reflective path at 1,000 entities, consistent with the Bevy walker's own measured ~3.7x.
 
-**Not yet confirmed under real IL2CPP AOT, unlike the rest of Level 1/2/3 above** — this is a genuine open risk, not an oversight: `Expression.Compile()` needs JIT/codegen on most .NET runtimes, and IL2CPP has no `DynamicMethod`/`Reflection.Emit`; it's expected to fall back to the BCL's expression *interpreter* instead, but that hasn't been exercised against a real IL2CPP player yet. A check for exactly this (`Il2cppVerify.cs`'s new reflective-hashing block) has been added to the same `examples/unity-demo` IL2CPP CI leg described above, but this session couldn't run a real Unity Editor + IL2CPP build to confirm it passes — that confirmation is still open, tracked the same way P1 already tracks this class of risk.
+**Confirmed under real IL2CPP AOT.** `Expression.Compile()` needs JIT/codegen on most .NET runtimes, and IL2CPP has no `DynamicMethod`/`Reflection.Emit` — the concern was whether this would throw under AOT or silently fail. A check for exactly this (`Il2cppVerify.cs`'s reflective-hashing block) rides the same `bindings-unity-il2cpp` CI leg described above, and a real run on `windows-latest` printed:
+
+```
+ok   - reflective hashing (Expression.Compile-based accessors) records tagged fields under IL2CPP
+ok   - reflective hashing's untagged field stays invisible under IL2CPP
+```
+
+`Expression.Compile()` does work under real IL2CPP — falls back to the BCL's expression interpreter as expected, not a throw. Closes the last open item from the reflective-hashing work.
 
 See [Auto/Reflective Hashing](reflective-hashing.md) for the full cross-engine picture.
 
