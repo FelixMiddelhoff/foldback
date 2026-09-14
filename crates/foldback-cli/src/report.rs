@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Shared `.foldback` file loading + summarization, used by both the
 //! `analyze` and `ci-check` subcommands so their reports never drift
 //! apart from each other.

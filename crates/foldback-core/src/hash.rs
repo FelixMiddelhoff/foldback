@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! xxHash3 wrapper — the one place the hash algorithm is named, so an
 //! accidental swap or seed drift shows up as a one-line diff, not a
 //! silent behavior change scattered across the codebase.

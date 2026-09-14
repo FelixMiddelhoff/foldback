@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Regenerates the golden `.foldback` fixtures under `tests/fixtures/`.
 //! Run with `cargo run -p foldback-cli --example gen_fixtures` whenever the
 //! fixture *content* should change — the fixture files themselves are

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! zstd compression for full-state snapshots. Explicitly off the per-tick
 //! hot path (per foldback-performance-plan.md §2 and the Week 0 spike's
 //! secondary-metric findings) — used only at the configured snapshot

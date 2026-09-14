@@ -1,5 +1,24 @@
 # UI Guide
 
-**Status: not built yet.** Planned for Phase 1 (Tauri shell + timeline scrubber + peer comparison panel, offline `.foldback`-file mode only; live mode and the bisection drill-down panel follow in Phase 2). Design is already fully decided, not deferred along with the build — see the [Foldback UI mockup](https://claude.ai/code/artifact/98a136d1-d606-4d96-bc90-04e6fe74f292) for the working visual spec: timeline scrubber, peer comparison, bisection drill-down, and dark/light theme tokens.
+`foldback-ui` is a Tauri desktop app for inspecting a `.foldback` session file — offline replay only in v1 (live mode is Phase 2).
 
-Until it ships, use the [CLI Reference](cli.md) to inspect `.foldback` files.
+Run it from a checkout with:
+
+```bash
+cargo run -p foldback-ui
+```
+
+## Opening a session
+
+Two ways, same result:
+- **Drag a `.foldback` file onto the window** — no dialog, no setup.
+- Click **Open session…** and pick a file.
+
+## What you're looking at
+
+- **Tick timeline**: the full recorded tick range, green where every reporting peer agreed, red from the first divergence onward. Click anywhere to scrub; the accent line marks your current tick. Accent tick marks are recorded snapshots.
+- **Peers at tick N**: each peer's hash for the selected tick, with the odd-one-out highlighted red when they disagree. Below it, the last tick peers agreed on and the nearest snapshot at or before the divergence, when one exists.
+- **Session**: which hashing levels this file actually has data for (`tick`, and `entity`/`field` if recorded), whether the recording ended cleanly, and counts of metadata entries and snapshots.
+- **Bisection result**: entity/field-level drill-down, when the file has `EntityHash`/`FieldHash` frames for the selected tick. Level 2/3 recording isn't built yet (Phase 2) — until then, every session shows a plain note here instead of fabricated detail. When field data does exist, the UI shows the raw diverging values side by side and does not guess a root cause — check them against your own simulation code.
+
+See the [Foldback UI mockup](https://claude.ai/code/artifact/98a136d1-d606-4d96-bc90-04e6fe74f292) for the original visual spec this was built against.

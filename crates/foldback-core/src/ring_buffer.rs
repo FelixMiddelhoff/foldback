@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Bounded retention ring buffer — holds the last N entries, evicting the
 //! oldest as new ones arrive past capacity. Used for the tick-hash
 //! retention window and the snapshot ring buffer.

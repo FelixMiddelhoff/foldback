@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! Bisection engine — Phase 0 implements Level 1 (per-tick) only, per
 //! foldback-plan.md §6 roadmap. Level 2 (per-entity) and Level 3
 //! (per-field) narrow further *within* the tick this level finds, using

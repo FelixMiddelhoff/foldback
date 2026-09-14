@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! `.foldback` session file format: fixed 32-byte header, then a stream of
 //! length-prefixed frames. Append-only, streaming-writable, tolerant of
 //! truncation — a crash mid-recording must still yield a parseable prefix.

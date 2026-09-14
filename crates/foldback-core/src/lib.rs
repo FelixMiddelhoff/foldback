@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! `foldback-core` — hashing, session file format, and the Level 1
 //! bisection engine. See `foldback-plan.md` §3 for the design this
 //! implements and `foldback-protocol-spec.md` for the wire formats.

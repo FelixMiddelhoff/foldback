@@ -29,6 +29,7 @@ Any change touching `foldback-core`'s hashing/serialization path, `foldback-sys`
 2. Keep PRs scoped to one change. A protocol version bump touching core+CLI+UI+bindings together is fine (monorepo, lockstep release); an unrelated drive-by refactor bundled into a feature PR is not.
 3. Fill in the PR template's changelog-relevant-description checkbox — it feeds the changelog automation.
 4. CI must pass (fmt, clippy, tests, and the `determinism` cross-platform job) before merge.
+5. Every commit needs a `Signed-off-by:` trailer (`git commit -s`) — a Developer Certificate of Origin, not a copyright assignment: you're attesting you have the right to submit the code under this project's license, and you keep your own copyright. Enforced by the `DCO` CI check. Forgot on an existing commit? `git commit --amend -s` (or `git rebase --signoff <base>` for a range).
 
 ## Documentation
 

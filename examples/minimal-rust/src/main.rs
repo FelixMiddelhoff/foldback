@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! `examples/minimal-rust` — the smallest possible Foldback integration,
 //! no engine. Proves the Level-1 API end to end (foldback-plan.md §6,
 //! Phase 0 exit criterion) against a toy deterministic simulation: no

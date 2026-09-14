@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 //! The `Session` API — the library's actual integration surface, matching
 //! the shape pinned down in foldback-cookbook.md recipes 1–2. Level 1
 //! (per-tick) only in Phase 0; `record_peer_hash`/`check_divergence` are

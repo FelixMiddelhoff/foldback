@@ -2,3 +2,4 @@
 .claude/
 *.pdb
 /docs/book
+crates/foldback-ui/gen/

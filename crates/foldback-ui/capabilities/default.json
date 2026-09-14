@@ -1,0 +1,7 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "default",
+  "description": "Capabilities for the main window: local command invocation and the native open-file dialog for loading .foldback session files.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:default"]
+}

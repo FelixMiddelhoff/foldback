@@ -1,0 +1,11 @@
+[package]
+name = "ggrs-demo"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+foldback-core = { path = "../../crates/foldback-core" }
+ggrs = "0.13"
+bytemuck = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
