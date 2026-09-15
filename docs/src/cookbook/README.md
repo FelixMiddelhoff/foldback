@@ -174,7 +174,7 @@ for pending in session.take_pending_hashes() {
 
 ## 8. Unity integration
 
-Shipped — Level 1 (per-tick), Level 2/3 (per-entity/per-field, `HashEntity`/`HashField` and their peer-recording counterparts), and reflective hashing, all exposed across the FFI boundary and verified under real IL2CPP AOT compilation in CI. See [docs/integrations/unity.md](../integrations/unity.md) for the full status.
+Level 1 (per-tick), Level 2/3 (per-entity/per-field, `HashEntity`/`HashField` and their peer-recording counterparts), and reflective hashing are all exposed across the FFI boundary and verified under real IL2CPP AOT compilation in CI. See [Unity](../integrations/unity.md) for the full picture.
 
 ```csharp
 using Foldback;
