@@ -27,9 +27,9 @@ void Check(bool condition, string what)
     }
 }
 
-int IndexOf(byte[] haystack, byte[] needle)
+int IndexOf(byte[] haystack, byte[] needle, int startIndex = 0)
 {
-    for (var i = 0; i <= haystack.Length - needle.Length; i++)
+    for (var i = startIndex; i <= haystack.Length - needle.Length; i++)
     {
         var match = true;
         for (var j = 0; j < needle.Length; j++)
@@ -305,6 +305,44 @@ catch (ArgumentException)
     Check(tracked.Contains("Pos") && tracked.Contains("Hp") && tracked.Contains("Tags"),
         "ListTracked reports the tagged fields");
     Check(untracked.Contains("DebugLabel"), "ListTracked reports the untagged sibling");
+}
+
+// Schema-drift detection (foldback-reflective-hashing.md §7): each
+// reflected type's tagged field set is recorded once per type per
+// session, not once per HashReflected call.
+{
+    var path = Path.Combine(Path.GetTempPath(), $"foldback-schema-{Guid.NewGuid():N}.foldback");
+    try
+    {
+        using (var session = new FoldbackSession(new FoldbackConfig
+               {
+                   TickRateHz = 60,
+                   PeerCount = 1,
+                   RecordToPath = path,
+               }))
+        {
+            var unit = new ReflectUnit { Pos = new Position2 { X = 1f, Y = 2f }, Hp = 1, Tags = new List<string>() };
+            FoldbackReflection.HashReflected(session, 0, 0, "u", unit);
+            FoldbackReflection.HashReflected(session, 1, 0, "u", unit);
+            session.FinishRecording();
+        }
+        var bytes = File.ReadAllBytes(path);
+        var keyNeedle = System.Text.Encoding.UTF8.GetBytes("foldback.schema.ReflectUnit");
+        var valueNeedle = System.Text.Encoding.UTF8.GetBytes("Hp,Pos,Tags");
+        var firstIndex = IndexOf(bytes, keyNeedle);
+        Check(firstIndex >= 0, "the schema metadata frame's key is recorded");
+        Check(firstIndex >= 0 && IndexOf(bytes, keyNeedle, firstIndex + keyNeedle.Length) < 0,
+            "the schema metadata frame is recorded only once per type per session, not once per call");
+        Check(IndexOf(bytes, valueNeedle) >= 0,
+            "the schema metadata frame's value is the sorted tagged field set");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
 }
 
 // Performance: not assumed free (plan §5) — printed for visibility, not

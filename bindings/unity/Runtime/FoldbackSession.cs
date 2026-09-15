@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 using System;
+using System.Collections.Generic;
 
 namespace Foldback
 {
@@ -131,6 +132,39 @@ namespace Foldback
             var status = FoldbackNative.foldback_record_peer_field_hash(
                 _handle, tick, peerId, entityId, name.Ptr, hash, bytes, (UIntPtr)bytes.Length);
             ThrowIfError(status, "RecordPeerFieldHash");
+        }
+
+        /// Records `typeName`'s current tagged field set as a `Metadata`
+        /// frame — the schema-drift detection mechanism
+        /// (foldback-reflective-hashing.md §7). Called by
+        /// <see cref="FoldbackReflection.HashReflected"/> once per tracked
+        /// type it walks; a no-op past the first call for a given
+        /// `typeName` this session, same as the native
+        /// `Session::record_schema` it wraps.
+        public void RecordSchema(string typeName, IReadOnlyList<string> trackedFields)
+        {
+            ThrowIfDisposed();
+            using var name = new Utf8Buffer(typeName ?? throw new ArgumentNullException(nameof(typeName)));
+            var fields = trackedFields ?? Array.Empty<string>();
+            var buffers = new Utf8Buffer[fields.Count];
+            var ptrs = new IntPtr[fields.Count];
+            try
+            {
+                for (var i = 0; i < fields.Count; i++)
+                {
+                    buffers[i] = new Utf8Buffer(fields[i]);
+                    ptrs[i] = buffers[i].Ptr;
+                }
+                var status = FoldbackNative.foldback_record_schema(_handle, name.Ptr, ptrs, (UIntPtr)ptrs.Length);
+                ThrowIfError(status, "RecordSchema");
+            }
+            finally
+            {
+                foreach (var buffer in buffers)
+                {
+                    buffer?.Dispose();
+                }
+            }
         }
 
         /// Drains and returns hashes produced locally since the last call —

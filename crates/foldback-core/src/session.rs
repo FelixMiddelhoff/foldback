@@ -14,6 +14,7 @@ use crate::bisect::DivergenceTick;
 use crate::format::{Frame, Header};
 use crate::hash::hash_bytes;
 use crate::ring_buffer::RingBuffer;
+use crate::schema;
 use crate::Error;
 
 /// A tick hash produced locally, ready to exchange with peers over the
@@ -106,6 +107,7 @@ impl SessionBuilder {
             checked_ticks: HashSet::new(),
             cumulative: 0,
             writer,
+            written_schemas: HashSet::new(),
         })
     }
 }
@@ -124,6 +126,10 @@ pub struct Session {
     checked_ticks: HashSet<u64>,
     cumulative: u64,
     writer: Option<BufWriter<File>>,
+    /// Type names already given a `record_schema` call this session — the
+    /// once-per-type dedup so a reflective walker calling it every tick
+    /// doesn't spam a `Metadata` frame per call.
+    written_schemas: HashSet<String>,
 }
 
 impl Session {
@@ -266,6 +272,28 @@ impl Session {
         value: &T,
     ) -> Result<(), Error> {
         value.write_hashed_fields(self, tick, entity_id)
+    }
+
+    /// Records `type_name`'s current tagged field set as a `Metadata`
+    /// frame — the schema-drift detection mechanism
+    /// (foldback-reflective-hashing.md §7,
+    /// [`crate::schema`]). Called by a reflective walker once per tracked
+    /// type it walks; a plain no-op past the first call for a given
+    /// `type_name` this session (and, like every other frame-writing
+    /// method, a no-op entirely when not recording to a file), so it's
+    /// safe to call every tick without spamming the file.
+    pub fn record_schema(&mut self, type_name: &str, tracked_fields: &[&str]) -> Result<(), Error> {
+        if !self.written_schemas.insert(type_name.to_string()) {
+            return Ok(());
+        }
+        if let Some(w) = &mut self.writer {
+            Frame::Metadata {
+                key: schema::schema_metadata_key(type_name),
+                value: schema::fingerprint(tracked_fields),
+            }
+            .write_to(w)?;
+        }
+        Ok(())
     }
 
     /// Drains and returns hashes produced locally since the last call —

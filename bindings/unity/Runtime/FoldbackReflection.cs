@@ -64,10 +64,14 @@ namespace Foldback
             if (session == null) throw new ArgumentNullException(nameof(session));
             if (root == null) throw new ArgumentNullException(nameof(root));
 
+            var rootType = root.GetType();
+            var trackedMembers = GetTrackedMembers(rootType);
+            RecordSchemaOnce(session, rootType, trackedMembers);
+
             var preview = new List<(string, ulong)>();
             var visited = new HashSet<object>(ReferenceComparer.Instance);
 
-            foreach (var member in GetTrackedMembers(root.GetType()))
+            foreach (var member in trackedMembers)
             {
                 var value = member.Getter(root);
                 var path = JoinPath(fieldNamePrefix, member.Name);
@@ -226,6 +230,30 @@ namespace Foldback
                 var childValue = member.Getter(value);
                 Walk(session, tick, entityId, $"{path}.{member.Name}", childValue, depth + 1, visited, preview);
             }
+        }
+
+        // Schema-drift detection (foldback-reflective-hashing.md §7):
+        // dedup keyed by (session, type) so a game calling `HashReflected`
+        // every tick doesn't re-marshal and re-call across the FFI
+        // boundary once the native session already has this type's
+        // schema recorded (`Session::record_schema` dedups too, but that
+        // dedup happens *after* paying the marshaling cost of building
+        // the field-name buffers — worth avoiding here since, unlike
+        // Bevy's in-process check, this call crosses FFI). A
+        // `ConditionalWeakTable` ties the per-type set's lifetime to the
+        // session without needing a `Dispose` hook to clean it up.
+        private static readonly ConditionalWeakTable<FoldbackSession, HashSet<Type>> SchemaRecordedFor =
+            new ConditionalWeakTable<FoldbackSession, HashSet<Type>>();
+
+        private static void RecordSchemaOnce(FoldbackSession session, Type rootType, MemberAccessor[] trackedMembers)
+        {
+            var recorded = SchemaRecordedFor.GetOrCreateValue(session);
+            if (!recorded.Add(rootType))
+            {
+                return;
+            }
+            var fieldNames = trackedMembers.Select(m => m.Name).ToArray();
+            session.RecordSchema(rootType.FullName ?? rootType.Name, fieldNames);
         }
 
         private static void Record(

@@ -289,7 +289,7 @@ pub unsafe extern "C" fn foldback_hash_field(
 ) -> Status {
     run_catching(Status::Panic, || {
         let session = as_session_mut(session)?;
-        let field_name = str_from_raw(field_name)?;
+        let field_name = str_from_raw(field_name, "field_name")?;
         let bytes = bytes_from_raw(value, value_len)?;
         session
             .0
@@ -320,12 +320,57 @@ pub unsafe extern "C" fn foldback_record_peer_field_hash(
 ) -> Status {
     run_catching(Status::Panic, || {
         let session = as_session_mut(session)?;
-        let field_name = str_from_raw(field_name)?;
+        let field_name = str_from_raw(field_name, "field_name")?;
         let bytes = bytes_from_raw(value, value_len)?;
         session
             .0
             .record_peer_field_hash(tick, peer_id, entity_id, field_name, hash, bytes)
             .map_err(|e| format!("record_peer_field_hash failed: {e}"))?;
+        Ok(Status::Ok)
+    })
+}
+
+/// Records `type_name`'s current tagged field set as a `Metadata` frame —
+/// the schema-drift detection mechanism
+/// (foldback-reflective-hashing.md §7,
+/// [`foldback_core::schema`]). A reflective walker binding (Unity's
+/// `FoldbackReflection`, Godot's `hash_reflected`) calls this once per
+/// tracked type it walks; a no-op past the first call for a given
+/// `type_name` this session, same as `foldback_core::session::Session::
+/// record_schema` itself.
+///
+/// # Safety
+/// `session` must be a valid pointer from [`foldback_session_create`].
+/// `type_name` must be a valid NUL-terminated UTF-8 C string.
+/// `field_names` must point to at least `field_count` readable, non-null,
+/// NUL-terminated UTF-8 C string pointers (or be null iff `field_count`
+/// is 0).
+#[no_mangle]
+pub unsafe extern "C" fn foldback_record_schema(
+    session: *mut Handle,
+    type_name: *const c_char,
+    field_names: *const *const c_char,
+    field_count: usize,
+) -> Status {
+    run_catching(Status::Panic, || {
+        let session = as_session_mut(session)?;
+        let type_name = str_from_raw(type_name, "type_name")?;
+
+        let mut fields = Vec::with_capacity(field_count);
+        if field_count > 0 {
+            if field_names.is_null() {
+                return Err("field_names was null but field_count was nonzero".to_string());
+            }
+            let ptrs = std::slice::from_raw_parts(field_names, field_count);
+            for &ptr in ptrs {
+                fields.push(str_from_raw(ptr, "field_names entry")?);
+            }
+        }
+
+        session
+            .0
+            .record_schema(type_name, &fields)
+            .map_err(|e| format!("record_schema failed: {e}"))?;
         Ok(Status::Ok)
     })
 }
@@ -501,13 +546,13 @@ unsafe fn as_session_ref<'a>(session: *const Handle) -> Result<&'a Handle, Strin
         .ok_or_else(|| "session was null".to_string())
 }
 
-unsafe fn str_from_raw<'a>(ptr: *const c_char) -> Result<&'a str, String> {
+unsafe fn str_from_raw<'a>(ptr: *const c_char, label: &str) -> Result<&'a str, String> {
     if ptr.is_null() {
-        return Err("field_name was null".to_string());
+        return Err(format!("{label} was null"));
     }
     CStr::from_ptr(ptr)
         .to_str()
-        .map_err(|e| format!("field_name was not valid UTF-8: {e}"))
+        .map_err(|e| format!("{label} was not valid UTF-8: {e}"))
 }
 
 unsafe fn bytes_from_raw<'a>(ptr: *const u8, len: usize) -> Result<&'a [u8], String> {
@@ -793,6 +838,74 @@ mod tests {
 
             foldback_session_destroy(session_a);
             foldback_session_destroy(session_b);
+        }
+    }
+
+    #[test]
+    fn record_schema_writes_one_metadata_frame_per_type_not_per_call() {
+        use foldback_core::format::{Frame, FrameReader, Header};
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("schema.foldback");
+        let path_c = CString::new(path.to_str().unwrap()).unwrap();
+        let type_name = CString::new("Unit").unwrap();
+        let field_hp = CString::new("hp").unwrap();
+        let field_pos = CString::new("pos").unwrap();
+        let fields = [field_hp.as_ptr(), field_pos.as_ptr()];
+
+        unsafe {
+            let mut config = make_config();
+            config.record_to_path = path_c.as_ptr();
+            let session = foldback_session_create(&config);
+            assert!(!session.is_null());
+
+            let status =
+                foldback_record_schema(session, type_name.as_ptr(), fields.as_ptr(), fields.len());
+            assert_eq!(status, Status::Ok);
+            // A second call for the same type this session must not
+            // write a second Metadata frame.
+            let status =
+                foldback_record_schema(session, type_name.as_ptr(), fields.as_ptr(), fields.len());
+            assert_eq!(status, Status::Ok);
+
+            let status = foldback_finish_recording(session);
+            assert_eq!(status, Status::Ok);
+            foldback_session_destroy(session);
+        }
+
+        let mut file = std::fs::File::open(&path).unwrap();
+        Header::read_from(&mut file).unwrap();
+        let frames: Vec<_> = FrameReader::new(file).map(|f| f.unwrap()).collect();
+        let schema_frames: Vec<_> = frames
+            .iter()
+            .filter(
+                |f| matches!(f, Frame::Metadata { key, .. } if key.starts_with("foldback.schema.")),
+            )
+            .collect();
+        assert_eq!(schema_frames.len(), 1);
+        assert!(matches!(
+            schema_frames[0],
+            Frame::Metadata { key, value }
+            if key == "foldback.schema.Unit" && value == "hp,pos"
+        ));
+    }
+
+    #[test]
+    fn record_schema_null_type_name_reports_an_error_instead_of_crashing() {
+        unsafe {
+            let config = make_config();
+            let session = foldback_session_create(&config);
+
+            let status = foldback_record_schema(session, ptr::null(), ptr::null(), 0);
+            assert_eq!(status, Status::Panic);
+
+            let mut buf = [0i8; 256];
+            let len = foldback_last_error(buf.as_mut_ptr(), buf.len());
+            assert!(len > 0);
+            let msg = CStr::from_ptr(buf.as_ptr()).to_str().unwrap();
+            assert!(msg.contains("type_name"));
+
+            foldback_session_destroy(session);
         }
     }
 }

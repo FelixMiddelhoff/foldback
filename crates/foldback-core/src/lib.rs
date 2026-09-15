@@ -11,6 +11,7 @@ pub mod hashable;
 #[cfg(feature = "live")]
 pub mod live;
 pub mod ring_buffer;
+pub mod schema;
 pub mod session;
 pub mod snapshot;
 

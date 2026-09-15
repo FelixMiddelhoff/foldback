@@ -45,7 +45,7 @@
 use std::collections::HashSet;
 
 use godot::builtin::{GString, StringName, VarArray, VarDictionary, Variant, VariantType};
-use godot::classes::Object;
+use godot::classes::{Object, Script};
 use godot::meta::ToGodot;
 use godot::obj::{Gd, InstanceId};
 
@@ -73,6 +73,18 @@ pub fn hash_reflected(
     field_name_prefix: &str,
     target: Gd<Object>,
 ) -> Result<Vec<(String, u64)>, String> {
+    // Schema-drift detection (foldback-reflective-hashing.md §7): records
+    // `target`'s tracked (`foldback_`-prefixed) top-level property names
+    // once per type per session — GDScript has no compile-time type
+    // declarations to derive a static field set from (see `list_tracked`'s
+    // own note), so `schema_type_name` stands in for the static type name
+    // Bevy/Unity use.
+    let (tracked, _) = list_tracked(&target);
+    let tracked_refs: Vec<&str> = tracked.iter().map(String::as_str).collect();
+    session
+        .record_schema(&schema_type_name(&target), &tracked_refs)
+        .map_err(|e| format!("record_schema failed: {e}"))?;
+
     let mut visited = HashSet::new();
     let mut preview = Vec::new();
     let value = target.to_variant();
@@ -222,6 +234,30 @@ fn walk_object(
         )?;
     }
     Ok(())
+}
+
+/// A schema-drift "type name" for `obj`: `Object::get_class()` alone
+/// isn't enough here, since it returns the *native engine* class (e.g.
+/// `"RefCounted"`), not the GDScript type — verified live, not assumed:
+/// an attached script's own `resource_path` is also empty for a GDScript
+/// *inner* class (`class Foo extends RefCounted` nested in another
+/// file), so that can't disambiguate two inner classes in the same file
+/// either. `Script::get_global_name()` (a GDScript `class_name`) is the
+/// one identifier that's both stable across builds and actually unique
+/// per type — used when present. Without a `class_name`, this genuinely
+/// can't tell two same-base-class scripts apart (an inner class's
+/// identity has no build-stable representation to fall back to), so it
+/// falls back to the native `get_class()`, same as an unscripted engine
+/// object — a documented limitation, not a silent wrong answer: give
+/// tracked GDScript classes a `class_name` for schema drift to mean
+/// anything for them.
+fn schema_type_name(obj: &Gd<Object>) -> String {
+    obj.get_script()
+        .and_then(|script: Gd<Script>| {
+            let name = script.get_global_name().to_string();
+            (!name.is_empty()).then_some(name)
+        })
+        .unwrap_or_else(|| obj.get_class().to_string())
 }
 
 fn property_names(obj: &Gd<Object>) -> Vec<String> {

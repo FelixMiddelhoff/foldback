@@ -83,6 +83,12 @@ where
         return Err(Error::ReflectionRootNotStruct);
     };
 
+    // Schema-drift detection (foldback-reflective-hashing.md §7): records
+    // this type's tagged field set once per session, so a later analysis
+    // can tell whether the set of `#[foldback(hash)]` fields changed
+    // between the build that recorded a session and the one reading it.
+    session.record_schema(std::any::type_name::<T>(), T::TRACKED_FIELDS)?;
+
     let mut preview = Vec::new();
     for i in 0..s.field_len() {
         let name = s.name_at(i).unwrap_or("?");
@@ -647,5 +653,42 @@ mod tests {
             err,
             foldback_core::Error::ReflectionDepthExceeded { .. }
         ));
+    }
+
+    #[test]
+    fn hash_reflected_records_schema_once_per_type_not_once_per_call() {
+        let unit = Unit {
+            pos: Position { x: 0.0, y: 0.0 },
+            hp: 10,
+            tags: vec![],
+            debug_label: "u".to_string(),
+        };
+        let frames = hash_and_read_back(|session| {
+            hash_reflected(session, 0, 0, "unit", &unit).unwrap();
+            hash_reflected(session, 1, 0, "unit", &unit).unwrap();
+        });
+
+        let schema_frames: Vec<&Frame> = frames
+            .iter()
+            .filter(
+                |f| matches!(f, Frame::Metadata { key, .. } if key.starts_with("foldback.schema.")),
+            )
+            .collect();
+        // Two `hash_reflected` calls for the same type this session, but
+        // the schema is only ever recorded once — the dedup this test is
+        // actually about.
+        assert_eq!(schema_frames.len(), 1);
+
+        let Frame::Metadata { key, value } = schema_frames[0] else {
+            unreachable!()
+        };
+        assert!(key.ends_with("Unit"));
+        // `Unit::TRACKED_FIELDS` is just `["hp"]` (`pos`/`tags` are
+        // `#[foldback(reflect)]`, not `hash`) — the fingerprint records
+        // the *tagged* set, not everything the walker actually visits.
+        assert_eq!(
+            value,
+            &foldback_core::schema::fingerprint(Unit::TRACKED_FIELDS)
+        );
     }
 }

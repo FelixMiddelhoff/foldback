@@ -118,6 +118,16 @@ namespace Foldback
             [In] byte[] value,
             UIntPtr valueLen);
 
+        // `fieldNames` is `const char* const*` — an array of raw pointers,
+        // each built the same `Utf8Buffer` way as `fieldName` above, for
+        // the same reason (one verified string-passing pattern, not two).
+        [DllImport(LibName)]
+        internal static extern NativeStatus foldback_record_schema(
+            IntPtr session,
+            IntPtr typeName,
+            [In] IntPtr[] fieldNames,
+            UIntPtr fieldCount);
+
         [DllImport(LibName)]
         internal static extern UIntPtr foldback_pending_hash_count(IntPtr session);
 

@@ -3,11 +3,13 @@
 //! `analyze` and `ci-check` subcommands so their reports never drift
 //! apart from each other.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::Path;
 
 use foldback_core::bisect::{self, DivergenceTick, TickHashRecord};
 use foldback_core::format::{Frame, FrameReader, Header};
+use foldback_core::schema;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CliError {
@@ -86,4 +88,28 @@ pub fn analyze(path: &Path) -> Result<Report, CliError> {
         ended_cleanly,
         divergence,
     })
+}
+
+/// Reads a `.foldback` file's recorded schema metadata (`foldback.schema.*`
+/// `Metadata` frames, per `foldback_core::schema`) — the type-name ->
+/// tagged-field-fingerprint map a schema-drift comparison needs.
+pub fn extract_schema(path: &Path) -> Result<BTreeMap<String, String>, CliError> {
+    let path_str = path.display().to_string();
+    let mut file = File::open(path).map_err(|source| CliError::Open {
+        path: path_str.clone(),
+        source,
+    })?;
+    Header::read_from(&mut file).map_err(|source| CliError::Format {
+        path: path_str.clone(),
+        source,
+    })?;
+
+    let mut frames = Vec::new();
+    for frame in FrameReader::new(file) {
+        frames.push(frame.map_err(|source| CliError::Format {
+            path: path_str.clone(),
+            source,
+        })?);
+    }
+    Ok(schema::extract_schemas(&frames))
 }

@@ -7,7 +7,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
-use report::{analyze, Report};
+use report::{analyze, extract_schema, Report};
 
 /// Foldback — a desync/divergence debugger for lockstep/rollback
 /// multiplayer games.
@@ -40,6 +40,18 @@ enum Command {
         /// Directory to scan (recursively) for `.rs` files.
         path: PathBuf,
     },
+    /// Compare two `.foldback` files' recorded reflective-hashing schemas
+    /// and report any type whose tagged field set changed between them —
+    /// schema-drift detection (foldback-reflective-hashing.md §7). Exits
+    /// non-zero if drift is found, for CI use the same way `ci-check`
+    /// gates on divergence.
+    SchemaDiff {
+        /// The earlier `.foldback` recording (e.g. an older build).
+        before: PathBuf,
+        /// The later `.foldback` recording (e.g. the current build, or
+        /// the session actually being analyzed).
+        after: PathBuf,
+    },
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -53,6 +65,43 @@ fn main() -> ExitCode {
         Command::Analyze { file } => run_analyze(&file),
         Command::CiCheck { file } => run_ci_check(&file),
         Command::Lint { engine, path } => run_lint(engine, &path),
+        Command::SchemaDiff { before, after } => run_schema_diff(&before, &after),
+    }
+}
+
+fn run_schema_diff(before: &Path, after: &Path) -> ExitCode {
+    let before_schema = match extract_schema(before) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let after_schema = match extract_schema(after) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::from(2);
+        }
+    };
+
+    let drift = foldback_core::schema::detect_drift(&before_schema, &after_schema);
+    if drift.is_empty() {
+        println!(
+            "no schema drift across {} type(s) common to both files",
+            before_schema
+                .keys()
+                .filter(|k| after_schema.contains_key(*k))
+                .count()
+        );
+        ExitCode::SUCCESS
+    } else {
+        for d in &drift {
+            println!("SCHEMA DRIFT: {}", d.type_name);
+            println!("  before : {}", d.before);
+            println!("  after  : {}", d.after);
+        }
+        ExitCode::from(1)
     }
 }
 

@@ -25,6 +25,35 @@ class DeepNode extends RefCounted:
 	var foldback_inner: RefCounted
 	var foldback_value: int = 0
 
+const FoldbackDemoUnitScript := preload("res://FoldbackDemoUnit.gd")
+
+
+## Reads a `.foldback` file's `Metadata` frames (type `0x20`) whose key
+## starts with `"foldback.schema."` — schema-drift detection
+## (foldback-reflective-hashing.md §7). Parses the raw wire format
+## directly (protocol-spec.md §1) rather than shelling out to
+## `foldback-cli`, so this check has no dependency beyond the file itself.
+func read_schema_metadata(path: String) -> Array:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return []
+	f.seek(32)  # fixed 32-byte header (protocol-spec.md §1.1)
+	var out: Array = []
+	while f.get_position() < f.get_length():
+		var frame_type := f.get_8()
+		var payload_len := f.get_32()
+		var payload := f.get_buffer(payload_len)
+		if frame_type == 0x20:  # Metadata
+			var stream := StreamPeerBuffer.new()
+			stream.data_array = payload
+			var key_len := stream.get_u32()
+			var key := stream.get_utf8_string(key_len)
+			var value_len := stream.get_u32()
+			var value := stream.get_utf8_string(value_len)
+			if key.begins_with("foldback.schema."):
+				out.append({"key": key, "value": value})
+	return out
+
 
 func _initialize() -> void:
 	var all_ok := true
@@ -221,6 +250,39 @@ func _initialize() -> void:
 		print("PASS: a runaway nesting chain hits the depth guard: ", depth_session.get_last_error())
 	else:
 		print("FAIL: depth guard not triggered (preview size ", depth_preview.size(), ", error '", depth_session.get_last_error(), "')")
+		all_ok = false
+
+	# --- Schema-drift detection (foldback-reflective-hashing.md §7) ---
+	var schema_path := ProjectSettings.globalize_path("user://godot-demo-schema.foldback")
+	var schema_session := FoldbackSession.new()
+	schema_session.configure({"tick_rate_hz": 60, "peer_count": 1, "record_to_path": schema_path})
+
+	# A `class_name`-declared type: `Script.get_global_name()` gives a
+	# real, build-stable type name.
+	var named_unit: RefCounted = FoldbackDemoUnitScript.new()
+	named_unit.foldback_hp = 5
+	schema_session.hash_reflected(0, 0, "u", named_unit)
+	schema_session.hash_reflected(1, 0, "u", named_unit)  # same type again — must not duplicate the schema frame
+
+	# An inner class with no `class_name` (like `unit` above): falls back
+	# to `get_class()`, i.e. the native `RefCounted` — the documented
+	# limitation, not silently wrong.
+	schema_session.hash_reflected(2, 1, "u2", unit)
+
+	schema_session.finish_recording()
+	var schema_frames := read_schema_metadata(schema_path)
+
+	var named_frames := schema_frames.filter(func(f): return f["key"] == "foldback.schema.FoldbackDemoUnit")
+	var fallback_frames := schema_frames.filter(func(f): return f["key"] == "foldback.schema.RefCounted")
+	if named_frames.size() == 1 and named_frames[0]["value"] == "foldback_hp":
+		print("PASS: class_name type recorded exactly one schema frame with the tagged field set")
+	else:
+		print("FAIL: class_name schema frames wrong: ", named_frames)
+		all_ok = false
+	if fallback_frames.size() == 1 and fallback_frames[0]["value"] == "foldback_hp,foldback_pos":
+		print("PASS: inner-class (no class_name) falls back to get_class(), still one schema frame")
+	else:
+		print("FAIL: fallback schema frames wrong: ", fallback_frames)
 		all_ok = false
 
 	# Performance: not assumed free (plan §5) — printed for visibility,

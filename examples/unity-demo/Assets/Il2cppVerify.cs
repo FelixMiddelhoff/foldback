@@ -108,7 +108,18 @@ public static class Il2cppVerify
             // engine constraint" standard the rest of this file already
             // holds itself to.
             {
-                using (var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 }))
+                // Also records to a file so the schema-drift check below
+                // (foldback-reflective-hashing.md §7) can inspect what was
+                // written — `RecordSchema`'s own marshaling (an array of
+                // native string pointers, `[In] IntPtr[]`) is new FFI
+                // surface this file hasn't exercised under IL2CPP before.
+                var schemaPath = Path.Combine(Application.temporaryCachePath, "il2cpp-schema-check.foldback");
+                using (var session = new FoldbackSession(new FoldbackConfig
+                {
+                    TickRateHz = 60,
+                    PeerCount = 1,
+                    RecordToPath = schemaPath,
+                }))
                 {
                     var unit = new Il2cppReflectUnit
                     {
@@ -123,6 +134,25 @@ public static class Il2cppVerify
                         "reflective hashing (Expression.Compile-based accessors) records tagged fields under IL2CPP");
                     Check(!paths.Contains("unit.DebugLabel"),
                         "reflective hashing's untagged field stays invisible under IL2CPP");
+                    session.FinishRecording();
+                }
+                {
+                    var bytes = File.ReadAllBytes(schemaPath);
+                    var needle = Encoding.UTF8.GetBytes("foldback.schema.Il2cppReflectUnit");
+                    var found = false;
+                    for (var i = 0; i <= bytes.Length - needle.Length && !found; i++)
+                    {
+                        found = true;
+                        for (var j = 0; j < needle.Length; j++)
+                        {
+                            if (bytes[i + j] != needle[j])
+                            {
+                                found = false;
+                                break;
+                            }
+                        }
+                    }
+                    Check(found, "RecordSchema's IntPtr[] field-name marshaling survives IL2CPP AOT intact");
                 }
             }
         }

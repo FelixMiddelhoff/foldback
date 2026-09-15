@@ -192,6 +192,28 @@ FoldbackStatus foldback_record_peer_field_hash(struct FoldbackHandle *session,
                                                uintptr_t value_len);
 
 /**
+ * Records `type_name`'s current tagged field set as a `Metadata` frame —
+ * the schema-drift detection mechanism
+ * (foldback-reflective-hashing.md §7,
+ * [`foldback_core::schema`]). A reflective walker binding (Unity's
+ * `FoldbackReflection`, Godot's `hash_reflected`) calls this once per
+ * tracked type it walks; a no-op past the first call for a given
+ * `type_name` this session, same as `foldback_core::session::Session::
+ * record_schema` itself.
+ *
+ * # Safety
+ * `session` must be a valid pointer from [`foldback_session_create`].
+ * `type_name` must be a valid NUL-terminated UTF-8 C string.
+ * `field_names` must point to at least `field_count` readable, non-null,
+ * NUL-terminated UTF-8 C string pointers (or be null iff `field_count`
+ * is 0).
+ */
+FoldbackStatus foldback_record_schema(struct FoldbackHandle *session,
+                                      const char *type_name,
+                                      const char *const *field_names,
+                                      uintptr_t field_count);
+
+/**
  * The number of hashes currently pending (produced locally since the
  * last [`foldback_take_pending_hashes`] call), without draining them —
  * lets a caller size its send buffer before draining.
