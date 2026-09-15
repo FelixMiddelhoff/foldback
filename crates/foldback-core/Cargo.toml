@@ -7,7 +7,7 @@ repository.workspace = true
 
 [dependencies]
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
-zstd = "0.13"
+zstd = "0.14"
 thiserror = "1"
 tungstenite = { version = "0.30", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
