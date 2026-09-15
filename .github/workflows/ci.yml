@@ -259,18 +259,20 @@ jobs:
             | tee godot-test-output.txt
           grep -q "^ALL PASS$" godot-test-output.txt
 
-  # Fuzz smoke test for the `.foldback` session-file parser
-  # (foldback-testing-plan.md §1.3's highest-value fuzz target: real files
+  # Fuzz smoke test for the `.foldback` session-file parser: real files
   # from the wild, including corrupted/truncated/adversarial ones, must
-  # never panic or hang the parser). `cargo-fuzz`/libFuzzer needs LLVM's
+  # never panic or hang the parser. `cargo-fuzz`/libFuzzer needs LLVM's
   # sanitizer-coverage runtime, which only links cleanly against a real
   # clang toolchain — confirmed not to work with MSVC's `link.exe`
   # (unresolved `__start___sancov_*` symbols) when tried locally, so
-  # ubuntu-latest only, same "verify the actual platform constraint,
-  # don't assume" lesson the IL2CPP/Godot CI legs already learned. A
-  # short smoke run (bounded time), not a long fuzzing campaign — this is
-  # about catching a regression on every push, not finding every bug in
-  # one run.
+  # ubuntu-latest only. A short smoke run (bounded time), not a long
+  # fuzzing campaign — this is about catching a regression on every push,
+  # not finding every bug in one run. `+nightly` is required explicitly
+  # on both cargo-fuzz commands below: `dtolnay/rust-toolchain@nightly`
+  # installs the nightly toolchain but doesn't make it cargo's default,
+  # and cargo-fuzz needs nightly's `-Z` flags — confirmed by a real CI
+  # failure (plain `cargo fuzz build` picked up the stable toolchain and
+  # rejected `-Zsanitizer=address` as nightly-only) before this fix.
   fuzz-smoke:
     name: fuzz smoke test (foldback-core session parser)
     needs: fmt-and-lint
@@ -282,9 +284,9 @@ jobs:
         with:
           workspaces: crates/foldback-core/fuzz -> target
       - run: cargo install cargo-fuzz
-      - run: cargo fuzz build --fuzz-dir crates/foldback-core/fuzz
+      - run: cargo +nightly fuzz build --fuzz-dir crates/foldback-core/fuzz
       - run: |
-          cargo fuzz run --fuzz-dir crates/foldback-core/fuzz parse-session-file -- \
+          cargo +nightly fuzz run --fuzz-dir crates/foldback-core/fuzz parse-session-file -- \
             -max_total_time=60 -max_len=4096
 
   # cli-golden: golden-file tests against checked-in fixtures already run
