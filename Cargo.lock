@@ -1406,7 +1406,7 @@ dependencies = [
  "predicates",
  "syn 3.0.5",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.20",
  "walkdir",
 ]
 
@@ -1419,7 +1419,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.20",
  "tungstenite",
  "xxhash-rust",
  "zstd",
@@ -1473,7 +1473,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
- "thiserror 1.0.69",
+ "thiserror 2.0.20",
  "tungstenite",
 ]
 
