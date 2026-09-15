@@ -703,10 +703,12 @@ mod tests {
     /// compare against across CI runs, which is its own infrastructure
     /// project. Instead, a coarse, generous ratio bound: reflective
     /// hashing measured ~3.7x explicit's cost locally (docs/src/
-    /// integrations/reflective-hashing.md), so a 15x ceiling has wide
+    /// integrations/reflective-hashing.md), so a 25x ceiling has wide
     /// margin for CI-runner noise while still catching an order-of-
-    /// magnitude regression. Best-of-3 timing per side, real work (1,000
-    /// entities) to keep the signal well above scheduler-jitter noise.
+    /// magnitude regression — a 15x ceiling wasn't generous enough in
+    /// practice, confirmed by a real flake (16.1x) on a shared CI
+    /// runner. Best-of-5 timing per side, real work (1,000 entities) to
+    /// keep the signal well above scheduler-jitter noise.
     #[test]
     fn reflective_hashing_stays_within_a_generous_budget_of_explicit_hashing() {
         use std::time::{Duration, Instant};
@@ -745,7 +747,7 @@ mod tests {
         }
 
         const ENTITY_COUNT: usize = 1_000;
-        const MAX_RATIO: u32 = 15;
+        const MAX_RATIO: u32 = 25;
 
         let explicit_units: Vec<ExplicitUnit> = (0..ENTITY_COUNT)
             .map(|i| ExplicitUnit {
@@ -769,17 +771,22 @@ mod tests {
             f();
             start.elapsed()
         }
-        fn best_of_3(f: impl Fn()) -> Duration {
-            (0..3).map(|_| time_once(&f)).min().unwrap()
+        // best-of-3 wasn't enough margin against real CI-runner noise —
+        // a shared/loaded runner hit 16.1x against the old 15x ceiling
+        // on a PR completely unrelated to this code (an actions/cache
+        // version bump), confirmed genuine flakiness, not a regression.
+        // best-of-5 plus a wider ceiling below.
+        fn best_of_5(f: impl Fn()) -> Duration {
+            (0..5).map(|_| time_once(&f)).min().unwrap()
         }
 
-        let explicit = best_of_3(|| {
+        let explicit = best_of_5(|| {
             let mut session = Session::builder().peer_count(1).build().unwrap();
             for (id, unit) in explicit_units.iter().enumerate() {
                 session.hash_fields(0, id as u64, unit).unwrap();
             }
         });
-        let reflective = best_of_3(|| {
+        let reflective = best_of_5(|| {
             let mut session = Session::builder().peer_count(1).build().unwrap();
             for (id, unit) in reflective_units.iter().enumerate() {
                 hash_reflected(&mut session, 0, id as u64, "unit", unit).unwrap();
