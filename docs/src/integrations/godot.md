@@ -1,8 +1,8 @@
 # Godot
 
-## Status
+## Overview
 
-**Shipped** (Phase 4). `bindings/godot` is a GDExtension addon built directly on [`gdext`](https://godot-rust.github.io) (godot-rust's Rust bindings for Godot 4) — no separate C ABI layer, unlike the Unity binding, since `gdext` generates the GDExtension registration itself. Exposes a GDScript-native `FoldbackSession` class. Verified end to end against a real, headless Godot 4.7.2 engine in CI (Level 1 divergence detection, Level 2/3 hashing round-tripped through a real `.foldback` file, `finish()` agreement/disagreement, and the unconfigured-session error path).
+`bindings/godot` is a GDExtension addon built directly on [`gdext`](https://godot-rust.github.io) (godot-rust's Rust bindings for Godot 4) — no separate C ABI layer, unlike the Unity binding, since `gdext` generates the GDExtension registration itself. Exposes a GDScript-native `FoldbackSession` class. Verified end to end against a real, headless Godot 4.7.2 engine in CI (Level 1 divergence detection, Level 2/3 hashing round-tripped through a real `.foldback` file, `finish()` agreement/disagreement, and the unconfigured-session error path).
 
 ## Using it
 
@@ -21,7 +21,7 @@ Also verified directly from `godot-core`'s own source (not assumed): Godot's `Di
 
 Depth-guarded (default 8) and cycle-guarded via `Gd<T>::instance_id()` (a real identity check, same soundness reasoning as the Unity walker — Godot `Object`s are reference types that can form genuine cycles).
 
-Verified end to end against the same real, headless Godot 4.7.2 engine as the rest of this page — `examples/godot-demo/test.gd` now also exercises the walker, `list_tracked`, cycle detection, the depth guard, and a printed (non-gated) explicit-vs-reflective timing comparison. Reflective hashing ran roughly 13x explicit's cost for 1,000 entities — noticeably higher overhead than Bevy's ~3.7x or Unity's ~3.5x, most likely `get_property_list()`'s full property-array-of-dictionaries construction per call; not yet profiled further.
+Verified end to end against the same real, headless Godot 4.7.2 engine as the rest of this page — `examples/godot-demo/test.gd` exercises the walker, `list_tracked`, cycle detection, the depth guard, and an explicit-vs-reflective timing comparison, CI-gated against a ratio ceiling. Reflective hashing runs roughly 13-19x explicit's cost for 1,000 entities — noticeably higher overhead than Bevy's ~3.7x or Unity's ~3.5x, most likely `get_property_list()`'s full property-array-of-dictionaries construction per call.
 
 See [Auto/Reflective Hashing](reflective-hashing.md) for the full cross-engine picture.
 

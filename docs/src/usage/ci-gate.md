@@ -1,6 +1,6 @@
 # CI Integration
 
-## Today: check an already-recorded file
+## Check an already-recorded file
 
 ```bash
 foldback ci-check session.foldback
@@ -36,11 +36,3 @@ assert_eq!(a.finish(), b.finish());
 ```
 
 This is a plain Rust `assert_eq!` — wire it into whatever test runner you already use (`cargo test`, a custom harness), no `foldback-cli` involved. See [Sessions, Files, and Live Mode](../guide/sessions.md#in-process-ci-gate-pattern).
-
-## Planned: one-command replay orchestration
-
-```bash
-foldback ci-check --replay inputs.log --sim-binary ./target/release/my_sim
-```
-
-Not implemented yet — would spawn the given sim binary twice against a fixed input log and diff automatically, skipping the need to hand-write the double-run loop above. See the [Cookbook](../cookbook/README.md#2-ci-gate) for the target shape.

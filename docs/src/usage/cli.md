@@ -54,7 +54,7 @@ Unit (src/game/unit.rs)
   untracked : debug_label
 ```
 
-Bevy/Rust only for now — Unity/Godot/Unreal don't have their own static scanners (each has other visibility tooling instead: `ListTracked`/`list_tracked` reflective queries, and — as of this session — a real in-editor dock for all three engines; see the reflective-hashing page for details).
+Bevy/Rust only — Unity/Godot/Unreal don't have their own static scanners (each has other visibility tooling instead: `ListTracked`/`list_tracked` reflective queries, and a real in-editor dock for all three engines; see the reflective-hashing page for details).
 
 Exit codes: `0` on a successful scan (even if it finds zero tagged types), `2` if the path couldn't be read or a file failed to parse.
 
@@ -71,6 +71,6 @@ SCHEMA DRIFT: my_game::Unit
 
 Exit codes: `0` if no drift (also the result if a file has no schema metadata at all — e.g. it only used explicit hashing, never reflective), `1` if drift is found, `2` if a file couldn't be opened or parsed.
 
-## `foldback record` — not yet implemented
+## Recording a session file
 
-Deferred: its natural mechanism (either a live-mode WS connection, or a `--sim-binary` replay-and-diff orchestrator) isn't designed yet, and live mode itself is Phase 2. Use `Session::builder().record_to(path)` at the library level today (see [Sessions, Files, and Live Mode](../guide/sessions.md)) — `examples/minimal-rust` demonstrates it end to end.
+There's no CLI command for this — recording happens at the library level, via `Session::builder().record_to(path)` (see [Sessions, Files, and Live Mode](../guide/sessions.md)). `examples/minimal-rust` demonstrates it end to end.

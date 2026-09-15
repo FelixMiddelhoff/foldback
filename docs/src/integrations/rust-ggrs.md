@@ -4,9 +4,9 @@
 
 Any Rust game using a lockstep or rollback netcode library — GGRS specifically has a first-class integration, since Foldback can ride the checksum a GGRS game already computes instead of adding a second simulation hook.
 
-## Status
+## Overview
 
-The core `foldback-core` API (Level 1 hashing, the `Session` type) ships today and works from any Rust project with no GGRS dependency — see the [Quickstart](../getting-started/quickstart.md). `foldback-rs`'s `ggrs` feature (Phase 2) ships two helpers, `checksum` and `record_desync` — see below. `examples/ggrs-demo` proves a real GGRS `SyncTestSession` end to end, recording a real two-peer `.foldback` file the UI can open.
+The core `foldback-core` API (Level 1 hashing, the `Session` type) works from any Rust project with no GGRS dependency — see the [Quickstart](../getting-started/quickstart.md). `foldback-rs`'s `ggrs` feature adds two helpers, `checksum` and `record_desync` — see below. `examples/ggrs-demo` proves a real GGRS `SyncTestSession` end to end, recording a real two-peer `.foldback` file the UI can open.
 
 ## Install
 

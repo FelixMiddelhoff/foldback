@@ -16,11 +16,11 @@ Get this decided once, correctly, before four different engine bindings each hav
 
 # Design
 
-Full reasoning: `foldback-cookbook.md` §5. `#[derive(FoldbackHash)]` marks no fields for hashing by default; a field must be explicitly annotated (`#[foldback(hash)]` in Rust, `[FoldbackHash]` in C#, `@export_foldback` in Godot, `UPROPERTY(meta=(FoldbackHash))` in Unreal) to be included.
+Full reasoning: [Cookbook §5](../../cookbook/README.md#5-per-field-hashing). `#[derive(FoldbackHash)]` marks no fields for hashing by default; a field must be explicitly annotated (`#[foldback(hash)]` in Rust, `[FoldbackHash]` in C#, the `foldback_` name prefix in Godot — GDScript has no custom-attribute mechanism GDExtension can hook into, see [Auto/Reflective Hashing](../../integrations/reflective-hashing.md), `UPROPERTY(meta=(FoldbackHash))` in Unreal) to be included.
 
 # Drawbacks
 
-More integration friction per field than an opt-out default would have — every field a user cares about tracking needs an explicit annotation. Mitigated, not eliminated, by a `foldback lint`/compile-time-note requirement (same cookbook section) that surfaces unmarked fields rather than leaving the gap invisible.
+More integration friction per field than an opt-out default would have — every field a user cares about tracking needs an explicit annotation. Mitigated, not eliminated, by `foldback lint`'s unmarked-field-surfacing (see the Cookbook) that surfaces unmarked fields rather than leaving the gap invisible.
 
 # Alternatives considered
 
@@ -36,4 +36,4 @@ None outstanding for the default itself — the `foldback lint` unmarked-field-s
 
 # History
 
-- 2026-09-14: retroactively drafted and accepted during repo bootstrap, decision made during the original planning pass (see `foldback-cookbook.md` §5).
+- 2026-09-14: accepted.

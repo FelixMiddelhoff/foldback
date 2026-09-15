@@ -4,7 +4,7 @@ Two wire formats: the at-rest `.foldback` session file, and the live-mode transp
 
 ## 1. `.foldback` session file format
 
-Chunked binary log, not a database — append-only, streaming-writable (frames are written as they happen, no rewrite-the-whole-file-per-tick cost), and tolerant of truncation (a crash mid-recording must still yield a parseable prefix). **Implemented** — `foldback_core::format`.
+Chunked binary log, not a database — append-only, streaming-writable (frames are written as they happen, no rewrite-the-whole-file-per-tick cost), and tolerant of truncation (a crash mid-recording must still yield a parseable prefix). Implemented in `foldback_core::format`.
 
 ### 1.1 Header (fixed 32 bytes)
 
@@ -40,7 +40,7 @@ Full rationale: [RFC-0001](../project/rfcs/0001-session-file-format.md).
 
 ## 2. Live-mode transport
 
-**Shipped**: `foldback_core::live` on the game side, `foldback-ui`'s "Connect live…" on the UI side, proven against each other end to end (see `examples/live-demo`). Local loopback WebSocket (`ws://127.0.0.1:<port>`), chosen over a Unix socket/named pipe so the exact same message framing works unmodified for a genuinely remote session later, at negligible cost over loopback today.
+`foldback_core::live` on the game side, `foldback-ui`'s "Connect live…" on the UI side, proven against each other end to end (see `examples/live-demo`). Local loopback WebSocket (`ws://127.0.0.1:<port>`), chosen over a Unix socket/named pipe so the exact same message framing works unmodified for a genuinely remote session later, at negligible cost over loopback today.
 
 ### 2.1 Messages
 
@@ -68,7 +68,7 @@ Keeps the game-side dependency footprint minimal — a lot of this audience is C
 
 ## 3. C ABI surface (`foldback-sys`)
 
-**Shipped**: `foldback-sys/include/foldback.h`, generated via `cbindgen` from the Rust crate — never hand-edited, regenerated whenever the crate's public `extern "C"` surface changes. Covers session lifecycle, Level 1/2/3 hashing, schema-drift's `foldback_record_schema`, pending-hash draining, divergence checking, and error reporting; used by the Unity and Unreal bindings (Godot calls `foldback-core` directly through `gdext` instead — see [Architecture](architecture.md)). See [C API](c-api.md) for the header itself, per this project's "link out, don't duplicate" rule for generated references — the sketch this section originally carried predated the real implementation and doesn't match its actual signatures (every fallible call returns a `FoldbackStatus` code, for one, not the return-value-doubles-as-status-and-hash shape an early sketch had), so it's not reproduced here.
+`foldback-sys/include/foldback.h`, generated via `cbindgen` from the Rust crate — never hand-edited, regenerated whenever the crate's public `extern "C"` surface changes. Covers session lifecycle, Level 1/2/3 hashing, schema-drift's `foldback_record_schema`, pending-hash draining, divergence checking, and error reporting; used by the Unity and Unreal bindings (Godot calls `foldback-core` directly through `gdext` instead — see [Architecture](architecture.md)). See [C API](c-api.md) for the header itself, per this project's "link out, don't duplicate" rule for generated references — not reproduced here.
 
 All fallible calls return a status code, never throw/panic across the FFI boundary (a Rust panic unwinding into C/C++/C# calling code is undefined behavior) — every entry point is wrapped in `catch_unwind` and converts to an error code as a hard rule, not a best-effort. Full rationale: [RFC-0002](../project/rfcs/0002-c-abi-surface.md).
 

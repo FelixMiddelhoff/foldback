@@ -12,7 +12,7 @@ Ratifies the tick→entity→field bisection model as Foldback's central mechani
 
 # Motivation
 
-The bisection model (main plan §3.4) is the product's actual premise. It has a real, previously-undocumented limitation (`foldback-risk-plan.md` T1) worth ratifying as an explicit, accepted-with-eyes-open design constraint rather than leaving it as a footnote discovered later by a confused user. The RFC format is the right place to make a limitation this central official rather than incidental.
+The bisection model is the product's actual premise. It has a real limitation worth ratifying as an explicit, accepted-with-eyes-open design constraint rather than leaving it as a footnote discovered later by a confused user. The RFC format is the right place to make a limitation this central official rather than incidental.
 
 # Design
 
@@ -20,7 +20,7 @@ Bisection reads whatever granularity of hash data was actually recorded at captu
 
 # Drawbacks
 
-This is a real gap in the "bisect to find exactly what diverged" pitch for one class of integration (lockstep-without-rollback games lacking snapshot-restore). Accepted as an honest, documented limitation — stated plainly in the guide, per the risk plan's mitigation — rather than something to silently under-promise around or discover via a support issue.
+This is a real gap in the "bisect to find exactly what diverged" pitch for one class of integration (lockstep-without-rollback games lacking snapshot-restore). Accepted as an honest, documented limitation — stated plainly in the guide — rather than something to silently under-promise around or discover via a support issue.
 
 # Alternatives considered
 
@@ -32,8 +32,8 @@ The general shape — coarse continuous monitoring with the option to re-run at 
 
 # Unresolved questions
 
-Whether `foldback-cli` should grow a first-class `--resimulate <sim-binary>` mode that calls back into a game's own binary to re-run from a snapshot generically — flagged in the risk plan as needing a spike against the real GGRS demo before deciding. Not decided here.
+Whether `foldback-cli` should grow a first-class `--resimulate <sim-binary>` mode that calls back into a game's own binary to re-run from a snapshot generically. Not decided here.
 
 # History
 
-- 2026-09-14: retroactively drafted and accepted during repo bootstrap, decision made during the original planning pass (see `foldback-plan.md` §3.4 and `foldback-risk-plan.md` T1).
+- 2026-09-14: accepted.

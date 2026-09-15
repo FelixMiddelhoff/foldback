@@ -2,7 +2,7 @@
 
 Foldback finds exactly where and why your lockstep/rollback simulation desynced — one hook per tick, a bisection engine that narrows a mismatch down to the field, and a UI that turns a wall of hash logs into a timeline you can point at.
 
-> **Status**: core library, CLI, UI (offline + live mode), and all four engine bindings (Rust/GGRS/Bevy, Unity, Godot, Unreal) are shipped, including reflective (auto) hashing for Bevy/Unity/Godot and a real in-editor visibility dock for all three. Not yet published to crates.io (pre-1.0). See [How Foldback Works](getting-started/how-it-works.md) for the full breakdown of what exists today versus what's still open.
+Not yet published to crates.io — see [How Foldback Works](getting-started/how-it-works.md) for the full pieces breakdown.
 
 ## The gap
 
@@ -32,12 +32,12 @@ If a peer's hash for a tick doesn't match, `session.check_divergence()` returns 
 
 ## Pick your engine
 
-| Engine | Status |
+| Engine | What you get |
 |---|---|
-| [Rust / GGRS / Bevy](integrations/rust-ggrs.md) | **Shipped** — core API, GGRS bridge, explicit + reflective hashing, an in-editor `bevy_egui` dock |
-| [Unity](integrations/unity.md) | **Shipped** — explicit + reflective hashing, an in-editor `EditorWindow` dock, verified under IL2CPP AOT |
-| [Godot](integrations/godot.md) | **Shipped** — explicit + reflective hashing, an in-editor dock plugin |
-| [Unreal Engine](integrations/unreal.md) | **Shipped** — explicit binding, reflective hashing, and a Mass Entity integration |
+| [Rust / GGRS / Bevy](integrations/rust-ggrs.md) | Core API, a GGRS bridge, explicit + reflective hashing, an in-editor `bevy_egui` dock |
+| [Unity](integrations/unity.md) | Explicit + reflective hashing, an in-editor `EditorWindow` dock, IL2CPP AOT support |
+| [Godot](integrations/godot.md) | Explicit + reflective hashing, an in-editor dock plugin |
+| [Unreal Engine](integrations/unreal.md) | Explicit binding, reflective hashing, and a Mass Entity integration |
 
 ## Further down
 

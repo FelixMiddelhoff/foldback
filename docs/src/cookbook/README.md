@@ -1,21 +1,20 @@
 # Cookbook
 
-Short, copy-pasteable recipes in the target API shape. Recipes 1-5 and 7-9 are shipped; 6 and 10 are partially shipped (the underlying data exists, a documented convenience wrapper doesn't yet) — check the status column before assuming a recipe compiles against `main` today.
+Short, copy-pasteable recipes matching the real, shipped API — every sample below compiles against `main`.
 
 Each Rust recipe leaves out error handling you'd keep in real code (`Result` unwraps stand in for real handling).
 
-| # | Recipe | Status |
-|---|---|---|
-| 1 | [Minimal integration](#1-minimal-integration) | **Shipped** (Phase 0) |
-| 2 | [CI gate](#2-ci-gate) | **Shipped** (`finish()`/`Session` API); `foldback ci-check --replay` sim-orchestration mode not yet built |
-| 3 | [GGRS/Bevy integration](#3-ggrsbevy-integration) | **Shipped** (Phase 2) — `foldback_rs::ggrs::checksum`/`record_desync`, not the originally-sketched `attach_foldback` (GGRS has no hookable checksum callback to wrap) |
-| 4 | [Per-entity hashing](#4-per-entity-hashing) | **Shipped** (Phase 2) |
-| 5 | [Per-field hashing](#5-per-field-hashing) | **Shipped** (Phase 2) — `#[derive(FoldbackHash)]`, feature `derive` |
-| 6 | [Reading a `.foldback` file programmatically](#6-reading-a-foldback-file-programmatically) | Frame reading: **shipped** (`foldback_core::format::FrameReader`). `bisect()` convenience wrapper: not yet built as shown |
-| 7 | [Live mode](#7-live-mode) | **Shipped** (Phase 2) — game side (`foldback_core::live::LiveServer`) and UI side (`foldback-ui`'s "Connect live…") both built and proven against each other |
-| 8 | [Unity integration](#8-unity-integration) | **Shipped** (`bindings/unity`, `HashTick`/`RecordPeerHash`/`TakePendingHashes`/`CheckDivergence`/`Finish`, plus Level 2/3 — `HashEntity`/`HashField` and their peer-recording counterparts, all exposed across the FFI boundary), Phase 3 — verified against the real native library via a .NET P/Invoke harness, *and* against a real IL2CPP AOT build (`examples/unity-demo`), both locally and in CI (`bindings-unity-il2cpp`, green on `windows-latest`) — closes the risk register's P1 "definition of done" requirement. `[FoldbackHash]` reflection (`FoldbackReflection.HashReflected`) is also shipped and confirmed working under real IL2CPP, see [Auto/Reflective Hashing](../integrations/reflective-hashing.md) |
-| 9 | [Godot integration](#9-godot-integration) | **Shipped** (Phase 4) — `bindings/godot` (GDExtension via `gdext`), verified end to end against a real Godot 4.7.2 engine (headless) in CI. Reflective hashing (`FoldbackSession.hash_reflected`, a `foldback_`-prefix naming convention rather than a custom `@export` hint — see [Auto/Reflective Hashing](../integrations/reflective-hashing.md)) also shipped |
-| 10 | [Annotating the timeline](#10-annotating-the-timeline) | `Metadata` frame exists in the file format; a convenience `session.annotate()` wrapper not yet built |
+| # | Recipe |
+|---|---|
+| 1 | [Minimal integration](#1-minimal-integration) |
+| 2 | [CI gate](#2-ci-gate) |
+| 3 | [GGRS/Bevy integration](#3-ggrsbevy-integration) |
+| 4 | [Per-entity hashing](#4-per-entity-hashing) |
+| 5 | [Per-field hashing](#5-per-field-hashing) |
+| 6 | [Reading a `.foldback` file programmatically](#6-reading-a-foldback-file-programmatically) |
+| 7 | [Live mode](#7-live-mode) |
+| 8 | [Unity integration](#8-unity-integration) |
+| 9 | [Godot integration](#9-godot-integration) |
 
 ---
 
@@ -61,7 +60,7 @@ for tick in 0..NUM_TICKS {
 assert_eq!(a.finish(), b.finish(), "non-determinism detected — see bisection report below");
 ```
 
-Today, run `foldback ci-check <file>` against an already-recorded `.foldback` file for the CI exit-code contract (0 clean, non-zero on divergence) — see [CI Integration](../usage/ci-gate.md). The fancier `--replay inputs.log --sim-binary ./target/release/my_sim` orchestration mode (spawn your sim binary twice, diff automatically) isn't built yet.
+Run `foldback ci-check <file>` against an already-recorded `.foldback` file for the CI exit-code contract (0 clean, non-zero on divergence) — see [CI Integration](../usage/ci-gate.md).
 
 ---
 
@@ -144,7 +143,7 @@ for frame in FrameReader::new(file) {
 }
 ```
 
-A `bisect()` convenience wrapper that returns the same text report `foldback analyze` prints is not yet built — for now, feed collected `TickHashRecord`s into `foldback_core::bisect::find_first_divergence` directly (what `foldback analyze` itself does internally).
+Feed collected `TickHashRecord`s into `foldback_core::bisect::find_first_divergence` directly — the same function `foldback analyze` itself calls internally — to find the first divergence tick from your own tooling.
 
 ---
 
@@ -209,17 +208,5 @@ func _physics_process(_delta):
 
 GDExtension binding (`bindings/godot`) exposes the same core through a GDScript-native `FoldbackSession` class rather than raw FFI calls — built directly on `gdext` (godot-rust) rather than through `foldback-sys`'s C ABI, since `gdext` generates the GDExtension registration itself.
 
-Deviates from an earlier sketch of this recipe that passed the config dict straight to `.new()`: a GDExtension class's `.new()` calls its zero-argument `_init`, so there's no supported way to route extra constructor arguments through it. The real, verified shape is `.new()` then `.configure(dict) -> bool`, returning `false` and setting `get_last_error()` on failure rather than throwing. `u64` hashes cross into GDScript as `i64` via exact bit-reinterpretation (GDScript's only integer type) — a hash may print as negative, which is expected and harmless for equality-based divergence checks.
+A GDExtension class's `.new()` calls its zero-argument `_init`, so there's no supported way to route constructor arguments through it directly — hence the two-step `.new()` then `.configure(dict) -> bool` shape, returning `false` and setting `get_last_error()` on failure rather than throwing. `u64` hashes cross into GDScript as `i64` via exact bit-reinterpretation (GDScript's only integer type) — a hash may print as negative, which is expected and harmless for equality-based divergence checks.
 
----
-
-## 10. Annotating the timeline
-
-Free-form metadata frames let the UI show *why* a tick matters, not just *that* it happened. The `Metadata` frame type already exists in the file format (see [protocol spec](../reference/protocol-spec.md)); the convenience wrapper below isn't built yet — write `Frame::Metadata { key, value }` directly via `FrameReader`'s write-side counterpart in the meantime.
-
-```rust
-session.annotate(tick, "input:P1", "jump")?;
-session.annotate(tick, "event", "round_start")?;
-```
-
-Shown as small tick markers in the UI timeline (once the UI exists), independent of and orthogonal to divergence markers.

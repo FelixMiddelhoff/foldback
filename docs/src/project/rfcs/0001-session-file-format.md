@@ -12,11 +12,11 @@ Define `.foldback` as an append-only, length-prefixed binary frame stream with a
 
 # Motivation
 
-Every binding, the UI, and any third-party tooling built on top of Foldback reads this format — it's externally depended on from the very first `foldback-cli record` call. Getting the extensibility and failure-mode story right before the first byte is written matters more here than almost anywhere else in the project.
+Every binding, the UI, and any third-party tooling built on top of Foldback reads this format — it's externally depended on the moment a game starts recording. Getting the extensibility and failure-mode story right before the first byte is written matters more here than almost anywhere else in the project.
 
 # Design
 
-Full spec: `foldback-protocol-spec.md` §1. Fixed 32-byte header carrying `format_version`; a stream of length-prefixed frames after it. `format_version` is bumped only on breaking frame-layout changes. Unknown frame types are safely skippable by their length prefix — this is the actual forward-compatibility mechanism, not a version-negotiation handshake.
+Full spec: [Protocol & File Format Spec §1](../../reference/protocol-spec.md#1-foldback-session-file-format). Fixed 32-byte header carrying `format_version`; a stream of length-prefixed frames after it. `format_version` is bumped only on breaking frame-layout changes. Unknown frame types are safely skippable by their length prefix — this is the actual forward-compatibility mechanism, not a version-negotiation handshake.
 
 # Drawbacks
 
@@ -36,4 +36,4 @@ Whether a v2 index format should be a separate sidecar file or an in-band frame 
 
 # History
 
-- 2026-09-14: retroactively drafted and accepted during repo bootstrap, decision made during the original planning pass (see `foldback-protocol-spec.md`).
+- 2026-09-14: accepted.

@@ -16,7 +16,7 @@ Needed a decision between a Unix socket/named pipe (simpler, desktop-only) and a
 
 # Design
 
-Full spec: `foldback-protocol-spec.md` §2. JSON for control messages (session start/stop, metadata). Binary data frames reuse the file format's own frame layout deliberately, so the UI's parser is one code path for both live and offline mode — no separate live-mode deserializer to keep in sync.
+Full spec: [Protocol & File Format Spec §2](../../reference/protocol-spec.md#2-live-mode-transport). JSON for control messages (session start/stop, metadata). Binary data frames reuse the file format's own frame layout deliberately, so the UI's parser is one code path for both live and offline mode — no separate live-mode deserializer to keep in sync.
 
 # Drawbacks
 
@@ -38,4 +38,4 @@ None outstanding for the transport choice itself; authentication/access-control 
 
 # History
 
-- 2026-09-14: retroactively drafted and accepted during repo bootstrap, decision made during the original planning pass (see `foldback-protocol-spec.md`).
+- 2026-09-14: accepted.

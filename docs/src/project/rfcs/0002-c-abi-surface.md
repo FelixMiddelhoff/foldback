@@ -12,11 +12,11 @@ supersedes:
 
 # Motivation
 
-Every non-Rust binding (Unity, Godot, Unreal) depends on this surface being stable and safe to call across an FFI boundary from a language/runtime that may disable exceptions (Unreal) or use ahead-of-time compilation with real marshaling restrictions (Unity IL2CPP — see `foldback-risk-plan.md` P1).
+Every non-Rust binding (Unity, Godot, Unreal) depends on this surface being stable and safe to call across an FFI boundary from a language/runtime that may disable exceptions (Unreal) or use ahead-of-time compilation with real marshaling restrictions (Unity IL2CPP).
 
 # Design
 
-Sketch in `foldback-protocol-spec.md` §3. `cbindgen`-generated header is the single source of truth. Every fallible call returns a status code rather than throwing/panicking across the boundary. `catch_unwind` at every FFI entry point is a hard rule — a Rust panic must never unwind across the FFI boundary, since that's undefined behavior on the C/C++/C# side.
+Full spec: [Protocol & File Format Spec §3](../../reference/protocol-spec.md#3-c-abi-surface-foldback-sys). `cbindgen`-generated header is the single source of truth. Every fallible call returns a status code rather than throwing/panicking across the boundary. `catch_unwind` at every FFI entry point is a hard rule — a Rust panic must never unwind across the FFI boundary, since that's undefined behavior on the C/C++/C# side.
 
 # Drawbacks
 
@@ -36,4 +36,4 @@ None outstanding — this is a narrow, fully-resolved RFC.
 
 # History
 
-- 2026-09-14: retroactively drafted and accepted during repo bootstrap, decision made during the original planning pass (see `foldback-protocol-spec.md`).
+- 2026-09-14: accepted.

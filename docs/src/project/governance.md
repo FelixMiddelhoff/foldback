@@ -4,7 +4,7 @@
 
 **MIT OR Apache-2.0**, dual-licensed — the Rust-ecosystem convention, so anyone pulling in `foldback-core` as a dependency already expects this pairing. Apache-2.0 adds an explicit patent grant and patent-retaliation clause that MIT alone lacks; dual-licensing keeps the barrier to adoption as low as MIT while still making that protection available to anyone who wants it. A contributor's PR is licensed under both automatically — see `CONTRIBUTING.md`'s "unless you explicitly state otherwise" clause, the actual mechanism, not just a norm.
 
-Applied uniformly across every surface (Rust crates, the eventual Tauri UI's Rust and frontend code alike, Unity/Godot/Unreal packages once they exist) — no split-license monorepo confusion.
+Applied uniformly across every surface (Rust crates, the Tauri UI's Rust and frontend code, Unity/Godot/Unreal packages) — no split-license monorepo confusion.
 
 **DCO, not a CLA.** A contributor signs off (`git commit -s`) attesting they have the right to submit under the project's license — no copyright assignment, ever. This is deliberately harder to change later (a license change would need affirmative agreement from every contributor who holds copyright on code still in the tree) — an accepted tradeoff for keeping contribution low-friction now.
 
@@ -16,7 +16,7 @@ Protects the *name*, not the code — so a user who downloads something called F
 
 ## Contributor governance
 
-**Currently: solo maintainer**, even with all five build-out phases shipped — this isn't a phase-gated thing, formalization is triggered by contributor count (next paragraph), not by how much of the roadmap is done. No formal governance document needed yet — imposing a committee structure on a one-person project doesn't buy anything at this size. The RFC-shaped planning docs already in this repo (see [RFCs](rfcs/README.md)) are what deliberate design decision-making looks like in practice, even solo.
+**Currently: solo maintainer.** No formal governance document needed yet — imposing a committee structure on a one-person project doesn't buy anything at this size. The RFC-shaped planning docs already in this repo (see [RFCs](rfcs/README.md)) are what deliberate design decision-making looks like in practice, even solo.
 
 **Trigger to formalize a `GOVERNANCE.md`**: a second contributor merging PRs regularly, not just submitting them. At that point: maintainer tiers (core-crate vs. per-binding, following the repo's own seams), an RFC process for anything touching the protocol spec or C ABI (a markdown doc in `project/rfcs/`, a stated minimum comment period, maintainer consensus or the founding maintainer's tie-break), and normal review-and-merge with no RFC needed for day-to-day PRs.
 
