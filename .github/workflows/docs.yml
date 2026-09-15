@@ -32,7 +32,7 @@ jobs:
           curl -sSL "$url" | tar -xz -C "$HOME/.cargo/bin"
       - name: Build book
         run: "$HOME/.cargo/bin/mdbook build docs"
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/book
 
