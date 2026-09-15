@@ -11,6 +11,14 @@ on:
     - cron: "17 4 * * 1"
   workflow_dispatch:
 
+# Without this, a superseded run from an earlier push keeps executing to
+# completion (and showing its own, possibly-already-fixed failures)
+# instead of being replaced by the run for the newer commit — confusing
+# when pushes land in quick succession, found by hitting it directly.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
