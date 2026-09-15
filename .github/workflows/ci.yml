@@ -116,15 +116,10 @@ jobs:
         shell: bash
       - run: dotnet bindings/unity/Tests~/FoldbackSys.Tests/bin/Release/net8.0/FoldbackSys.Tests.dll
 
-  # The IL2CPP CI leg the risk register (P1) names as a Phase-3 "definition
-  # of done" requirement — an actual Unity Editor, with the Windows Build
-  # Support (IL2CPP) module, building and running examples/unity-demo
-  # (Assets/Il2cppVerify.cs runs the same checks as the C# harness above,
-  # but inside a real IL2CPP AOT player, which the Editor's own Mono
-  # runtime never exercises). Proven working end to end both locally and
-  # here in CI (real UNITY_EMAIL/UNITY_PASSWORD secrets, real
-  # windows-latest run, real PASS output) — closes P1's Phase-3
-  # requirement for real.
+  # Builds and runs examples/unity-demo inside a real Unity Editor with the
+  # Windows Build Support (IL2CPP) module (Assets/Il2cppVerify.cs runs the
+  # same checks as the C# harness above, but inside a real IL2CPP AOT
+  # player, which the Editor's own Mono runtime never exercises).
   #
   # `cache-installation: true` below caches the Hub+Editor+module install
   # between runs — a cache *miss* (first run ever, or after 7 days of
@@ -134,6 +129,12 @@ jobs:
     name: bindings/unity IL2CPP player (windows-latest)
     needs: fmt-and-lint
     runs-on: windows-latest
+    # Needs UNITY_EMAIL/UNITY_PASSWORD to activate a license -- GitHub
+    # withholds repo secrets from PRs opened by Dependabot, so this job
+    # can never pass on one (confirmed: identical "Username is required
+    # for Unity License Activation!" failure on all 9 open Dependabot
+    # PRs, none of which touch the Unity project at all).
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
