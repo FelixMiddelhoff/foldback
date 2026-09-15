@@ -11,6 +11,10 @@ config/name="foldback-godot-demo"
 config/features=PackedStringArray("4.3")
 config/icon=""
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/foldback/plugin.cfg")
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

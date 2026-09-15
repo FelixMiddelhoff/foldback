@@ -307,6 +307,31 @@ catch (ArgumentException)
     Check(untracked.Contains("DebugLabel"), "ListTracked reports the untagged sibling");
 }
 
+// Visibility tooling: the Recorded event — an editor window (or any other
+// live view) subscribes to this instead of polling HashReflected's return
+// value, since it doesn't call HashReflected itself.
+{
+    var unit = new ReflectUnit { Pos = new Position2 { X = 1f, Y = 2f }, Hp = 7, Tags = new List<string>() };
+    ReflectionPreview? captured = null;
+    void OnRecorded(ReflectionPreview p) => captured = p;
+
+    FoldbackReflection.Recorded += OnRecorded;
+    try
+    {
+        using var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
+        FoldbackReflection.HashReflected(session, 3, 9, "u", unit);
+    }
+    finally
+    {
+        FoldbackReflection.Recorded -= OnRecorded;
+    }
+
+    Check(captured.HasValue, "the Recorded event fires after HashReflected");
+    Check(captured?.RootType == typeof(ReflectUnit), "the Recorded event carries the correct root type");
+    Check(captured?.Tick == 3 && captured?.EntityId == 9, "the Recorded event carries the correct tick/entityId");
+    Check(captured?.Fields.Count > 0, "the Recorded event carries the same fields HashReflected returned");
+}
+
 // Schema-drift detection (foldback-reflective-hashing.md §7): each
 // reflected type's tagged field set is recorded once per type per
 // session, not once per HashReflected call.

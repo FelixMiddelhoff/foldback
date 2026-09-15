@@ -29,8 +29,44 @@ namespace Foldback
     /// <para>Reflection is an alternate <i>producer</i> feeding the same
     /// <see cref="FoldbackSession.HashField"/> sink the manual API uses,
     /// not a second bisection code path.</para>
+    /// One <see cref="FoldbackReflection.HashReflected"/> call's result —
+    /// the data <see cref="FoldbackReflection.Recorded"/> hands a live
+    /// listener (an editor window, a runtime overlay), mirroring what the
+    /// call itself returns.
+    public readonly struct ReflectionPreview
+    {
+        public readonly Type RootType;
+        public readonly ulong Tick;
+        public readonly ulong EntityId;
+        public readonly IReadOnlyList<(string Path, ulong Hash)> Fields;
+
+        internal ReflectionPreview(Type rootType, ulong tick, ulong entityId, List<(string, ulong)> fields)
+        {
+            RootType = rootType;
+            Tick = tick;
+            EntityId = entityId;
+            Fields = fields;
+        }
+    }
+
     public static class FoldbackReflection
     {
+        /// Fires after every <see cref="HashReflected"/> call — the
+        /// visibility-tooling hook (§4) a live view (an editor window, a
+        /// runtime overlay) subscribes to instead of polling. Mirrors
+        /// the Bevy binding's `bevy_egui` dock
+        /// (`examples/bevy-editor-demo`), which pulls its own preview
+        /// resource each frame from a system the game already runs —
+        /// here, the walker pushes instead, since Unity has no
+        /// equivalent "the game already calls this every frame and
+        /// stores it somewhere the dock can read" ECS convention to lean
+        /// on. Never throws from inside `HashReflected` on a subscriber's
+        /// behalf: a listener that throws is the listener's bug, not
+        /// reflective hashing's, so exceptions from `Recorded` handlers
+        /// propagate to the caller of `HashReflected` same as any other
+        /// C# event — keep handlers cheap and non-throwing.
+        public static event Action<ReflectionPreview> Recorded;
+
         /// Cycles/shared references (§3): a runaway or self-referential
         /// object graph fails loudly at this depth rather than recursing
         /// forever or overflowing the stack. Matches the Bevy walker's
@@ -78,6 +114,7 @@ namespace Foldback
                 Walk(session, tick, entityId, path, value, 1, visited, preview);
             }
 
+            Recorded?.Invoke(new ReflectionPreview(rootType, tick, entityId, preview));
             return preview;
         }
 

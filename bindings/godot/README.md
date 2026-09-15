@@ -7,7 +7,8 @@ Wraps `foldback-core` directly (see `crates/foldback-godot`'s own doc comment fo
 1. Build the native library: `cargo build -p foldback-godot --release` (or `--profile dev` while iterating).
 2. Copy this `addons/foldback` folder into your project's `addons/`.
 3. Copy the built library (`target/release/foldback_godot.dll` / `libfoldback_godot.so` / `libfoldback_godot.dylib`) into `addons/foldback/bin/` next to `foldback.gdextension`.
-4. Godot picks up the extension automatically on next project load — no editor plugin to enable, since this is a pure GDExtension (no editor-side tooling yet).
+4. Godot picks up the extension automatically on next project load.
+5. Optional: enable the **Foldback** editor plugin (Project Settings → Plugins) for a reflective-hashing visibility dock (foldback-reflective-hashing.md §4) — shows the `foldback_`-prefixed (tracked) vs untracked properties on whatever node is currently selected in the editor, live, no Play Mode or session needed. Deliberately *not* a live-hashing feed the way the Bevy/Unity docks are: the editor and a running (`F5`) game are separate OS processes by default, so there's no shared memory a dock could read a live `hash_reflected` call from the way Unity's single-process Editor+Play Mode allows — `list_tracked`'s static tracked/untracked split is what's actually buildable here, so that's what the dock shows.
 
 ```gdscript
 var session := FoldbackSession.new()
