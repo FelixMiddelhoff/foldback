@@ -11,6 +11,9 @@ bindings-unity-cs       .NET P/Invoke harness against a real built foldback_sys,
                         matrix: ubuntu/windows/macos
 bindings-unity-il2cpp   a real Unity Editor + IL2CPP AOT player build/run, windows-latest
 bindings-godot          a real headless Godot 4.7.2 engine, matrix: ubuntu/windows/macos
+fuzz-smoke              cargo-fuzz against the session-file parser, 60s bounded run,
+                        ubuntu-latest only (libFuzzer needs a real clang toolchain —
+                        confirmed not to link on MSVC)
 ```
 
 Triggers: `pull_request`, `push` to `main`, `workflow_dispatch`. All jobs above are required to merge (branch protection on `main`) except `bindings-unity-il2cpp`, which needs real `UNITY_EMAIL`/`UNITY_PASSWORD` secrets and so only runs meaningfully on this repo's own pushes, not arbitrary forks' PRs. The `determinism` job is treated as a release blocker if it ever fails — never a flaky-retry candidate, since a desync tool whose own hash isn't cross-platform-stable is self-defeating.
@@ -20,7 +23,8 @@ Triggers: `pull_request`, `push` to `main`, `workflow_dispatch`. All jobs above 
 ## Planned nightly/slow tier (not built yet)
 
 ```
-fuzz-full        cargo-fuzz, longer duration than a PR-time smoke run
+fuzz-full        cargo-fuzz, hours instead of fuzz-smoke's 60s — a scheduled/nightly
+                 run actually likely to find something a bounded PR-time pass won't
 ui-visual        Playwright screenshot diff
 ui-e2e           Playwright against a built Tauri app
 ```

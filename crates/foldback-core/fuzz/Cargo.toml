@@ -1,0 +1,27 @@
+[package]
+name = "foldback-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.foldback-core]
+path = ".."
+
+[[bin]]
+name = "parse-session-file"
+path = "fuzz_targets/parse_session_file.rs"
+test = false
+doc = false
+bench = false
+
+# Detaches this crate from the parent workspace (whose `members` glob is
+# non-recursive and doesn't reach two directories down) — cargo-fuzz's
+# own convention, so `cargo fuzz` commands run from here don't try to
+# resolve against the outer workspace's lockfile/members.
+[workspace]
