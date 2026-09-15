@@ -305,8 +305,22 @@ impl<R: Read> FrameReader<R> {
             return Ok(None); // truncated mid-header — discard, stop.
         }
         let payload_len = u32::from_le_bytes(len_buf) as usize;
-        let mut payload = vec![0u8; payload_len];
-        if self.inner.read_exact(&mut payload).is_err() {
+        // Deliberately not `vec![0u8; payload_len]` then `read_exact`: for
+        // a corrupted or adversarial file, `payload_len` is attacker-
+        // controlled and can claim up to ~4 GiB with only a few real
+        // bytes actually following it — pre-allocating that eagerly is a
+        // real memory-exhaustion DoS (found by the `parse_session_file`
+        // fuzz target, not assumed). `Read::take` + `read_to_end` instead
+        // grows the buffer only as far as bytes genuinely arrive, so a
+        // short stream stays cheap regardless of what the length prefix
+        // claims; the length check below still catches the truncation.
+        let mut payload = Vec::new();
+        if (&mut self.inner)
+            .take(payload_len as u64)
+            .read_to_end(&mut payload)
+            .is_err()
+            || payload.len() != payload_len
+        {
             return Ok(None); // truncated mid-payload — discard, stop.
         }
         match Frame::decode_payload(type_buf[0], &payload) {
@@ -467,5 +481,28 @@ mod tests {
         let reader = FrameReader::new(IoCursor::new(buf));
         let read_back: Result<Vec<_>, _> = reader.collect();
         assert_eq!(read_back.unwrap(), vec![Frame::EndOfStream]);
+    }
+
+    /// Regression test for a real memory-exhaustion finding from the
+    /// `parse_session_file` fuzz target (`crates/foldback-core/fuzz`):
+    /// a `payload_len` claiming ~4 GiB with only a handful of real bytes
+    /// actually following it used to make `next_frame` eagerly allocate
+    /// a buffer of that claimed size before attempting to read it — an
+    /// attacker (or just a corrupted file) doesn't need to supply 4 GiB
+    /// of data to make a reader try to allocate 4 GiB. Must now be
+    /// treated as an ordinary truncated frame instead.
+    #[test]
+    fn huge_claimed_payload_len_with_few_real_bytes_does_not_allocate_it_all() {
+        let mut buf = Vec::new();
+        buf.push(0x03); // FieldHash — the type the actual finding used
+        buf.extend_from_slice(&u32::MAX.to_le_bytes()); // payload_len lies
+        buf.extend_from_slice(&[0xFFu8; 16]); // far short of the claim
+
+        let reader = FrameReader::new(IoCursor::new(buf));
+        let read_back: Result<Vec<_>, _> = reader.collect();
+        // Truncation, not an error and not a multi-gigabyte allocation —
+        // the test finishing at all (under Miri/ASan or plain `cargo
+        // test`) is the actual assertion here.
+        assert_eq!(read_back.unwrap(), Vec::new());
     }
 }
