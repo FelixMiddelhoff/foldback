@@ -1,7 +1,13 @@
 [workspace]
 resolver = "2"
 members = ["crates/*", "examples/*"]
-exclude = ["examples/unity-demo", "examples/godot-demo", "examples/unreal-demo", "examples/unreal-mass-demo"]
+# Excluded from `cargo test --workspace`: each needs a real native
+# toolchain/engine (Unity/Godot/Unreal) or, for bevy-editor-demo, a real
+# GPU + windowing stack (full `bevy` + `bevy_egui`) that a standard CI
+# Linux/macOS runner isn't guaranteed to have configured — run these by
+# name (`cargo run -p bevy-editor-demo`, etc.) rather than sweeping them
+# into the default workspace build.
+exclude = ["examples/unity-demo", "examples/godot-demo", "examples/unreal-demo", "examples/unreal-mass-demo", "examples/bevy-editor-demo"]
 
 [workspace.package]
 version = "0.0.1"

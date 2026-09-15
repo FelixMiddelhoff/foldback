@@ -1,0 +1,11 @@
+[package]
+name = "bevy-editor-demo"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+foldback-core = { path = "../../crates/foldback-core", features = ["derive"] }
+foldback-rs = { path = "../../crates/foldback-rs", features = ["bevy", "bevy-debug-panel"] }
+bevy = "0.19"
+bevy_egui = "0.42"

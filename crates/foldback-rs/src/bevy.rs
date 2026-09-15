@@ -683,12 +683,115 @@ mod tests {
             unreachable!()
         };
         assert!(key.ends_with("Unit"));
-        // `Unit::TRACKED_FIELDS` is just `["hp"]` (`pos`/`tags` are
-        // `#[foldback(reflect)]`, not `hash`) — the fingerprint records
-        // the *tagged* set, not everything the walker actually visits.
+        // `Unit::TRACKED_FIELDS` includes `pos`/`tags` (`#[foldback(reflect)]`)
+        // alongside `hp` (`#[foldback(hash)]`) — the derive macro puts
+        // both markings into `TRACKED_FIELDS`, since the schema fingerprint
+        // is about "what's opted in at all," not just what `write_hashed_fields`
+        // itself serializes.
         assert_eq!(
             value,
             &foldback_core::schema::fingerprint(Unit::TRACKED_FIELDS)
+        );
+    }
+
+    /// CI regression gate for reflective hashing's performance budget
+    /// (foldback-reflective-hashing.md §5): the Criterion benchmark
+    /// (`benches/reflective_vs_explicit.rs`) measures the *cost*, but
+    /// nothing gated CI on it — a regression (say, an accidentally
+    /// quadratic walk) could land unnoticed. This is deliberately not a
+    /// Criterion-based check: that would need a stored baseline to
+    /// compare against across CI runs, which is its own infrastructure
+    /// project. Instead, a coarse, generous ratio bound: reflective
+    /// hashing measured ~3.7x explicit's cost locally (docs/src/
+    /// integrations/reflective-hashing.md), so a 15x ceiling has wide
+    /// margin for CI-runner noise while still catching an order-of-
+    /// magnitude regression. Best-of-3 timing per side, real work (1,000
+    /// entities) to keep the signal well above scheduler-jitter noise.
+    #[test]
+    fn reflective_hashing_stays_within_a_generous_budget_of_explicit_hashing() {
+        use std::time::{Duration, Instant};
+
+        // Mirrors `benches/reflective_vs_explicit.rs`'s own `Unit`/
+        // `ReflectiveUnit` pair: same three logical fields (a 2-float
+        // position, an int, a velocity array) hashed either fully
+        // explicitly or with the position reflected — comparable amounts
+        // of actual hashing work on both sides, unlike reusing this
+        // module's own `Unit` fixture (whose `hash`-only fields and
+        // `reflect`-only fields aren't the same set, so an explicit
+        // `hash_fields` call and a reflective `hash_reflected` call on it
+        // wouldn't do equivalent work).
+        #[derive(Reflect, FoldbackHash, Clone)]
+        struct ExplicitUnit {
+            #[foldback(hash)]
+            pos_x: f32,
+            #[foldback(hash)]
+            pos_y: f32,
+            #[foldback(hash)]
+            hp: i32,
+        }
+
+        #[derive(Reflect, FoldbackHash, Clone)]
+        struct GatePosition {
+            x: f32,
+            y: f32,
+        }
+
+        #[derive(Reflect, FoldbackHash, Clone)]
+        struct ReflectiveUnit {
+            #[foldback(reflect)]
+            pos: GatePosition,
+            #[foldback(hash)]
+            hp: i32,
+        }
+
+        const ENTITY_COUNT: usize = 1_000;
+        const MAX_RATIO: u32 = 15;
+
+        let explicit_units: Vec<ExplicitUnit> = (0..ENTITY_COUNT)
+            .map(|i| ExplicitUnit {
+                pos_x: i as f32,
+                pos_y: i as f32 * 2.0,
+                hp: 100 - (i % 100) as i32,
+            })
+            .collect();
+        let reflective_units: Vec<ReflectiveUnit> = (0..ENTITY_COUNT)
+            .map(|i| ReflectiveUnit {
+                pos: GatePosition {
+                    x: i as f32,
+                    y: i as f32 * 2.0,
+                },
+                hp: 100 - (i % 100) as i32,
+            })
+            .collect();
+
+        fn time_once(f: impl Fn()) -> Duration {
+            let start = Instant::now();
+            f();
+            start.elapsed()
+        }
+        fn best_of_3(f: impl Fn()) -> Duration {
+            (0..3).map(|_| time_once(&f)).min().unwrap()
+        }
+
+        let explicit = best_of_3(|| {
+            let mut session = Session::builder().peer_count(1).build().unwrap();
+            for (id, unit) in explicit_units.iter().enumerate() {
+                session.hash_fields(0, id as u64, unit).unwrap();
+            }
+        });
+        let reflective = best_of_3(|| {
+            let mut session = Session::builder().peer_count(1).build().unwrap();
+            for (id, unit) in reflective_units.iter().enumerate() {
+                hash_reflected(&mut session, 0, id as u64, "unit", unit).unwrap();
+            }
+        });
+
+        assert!(
+            reflective <= explicit * MAX_RATIO,
+            "reflective hashing took {reflective:?} vs explicit's {explicit:?} \
+             ({:.1}x, budget is {MAX_RATIO}x) — investigate before landing, \
+             this may be a real performance regression",
+            reflective.as_secs_f64() / explicit.as_secs_f64().max(f64::EPSILON),
         );
     }
 }

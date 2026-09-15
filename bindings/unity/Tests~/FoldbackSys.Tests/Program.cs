@@ -345,11 +345,16 @@ catch (ArgumentException)
     }
 }
 
-// Performance: not assumed free (plan §5) — printed for visibility, not
-// asserted, matching the Bevy walker's Criterion benchmark in spirit
-// (this harness stays dependency-free, no BenchmarkDotNet).
+// Performance: not assumed free (plan §5). Printed either way, and — a
+// CI regression gate, not just visibility — also asserted against a
+// generous ratio bound. Not BenchmarkDotNet (this harness stays
+// dependency-free): best-of-3 timing on real work (1,000 entities) to
+// keep the signal well above CI-runner jitter. Measured locally ~3.5x;
+// a 15x ceiling has wide margin while still catching an order-of-
+// magnitude regression (mirrors foldback-rs's own gate, same rationale).
 {
     const int entityCount = 1000;
+    const double maxRatio = 15.0;
     var units = Enumerable.Range(0, entityCount)
         .Select(i => new ReflectUnit
         {
@@ -360,19 +365,21 @@ catch (ArgumentException)
         })
         .ToList();
 
-    using (var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 }))
+    double TimeReflectiveMs()
     {
+        using var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
         var sw = System.Diagnostics.Stopwatch.StartNew();
         for (var id = 0; id < units.Count; id++)
         {
             FoldbackReflection.HashReflected(session, 0, (ulong)id, "unit", units[id]);
         }
         sw.Stop();
-        Console.WriteLine($"reflective: {entityCount} entities in {sw.Elapsed.TotalMilliseconds:F2} ms");
+        return sw.Elapsed.TotalMilliseconds;
     }
 
-    using (var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 }))
+    double TimeExplicitMs()
     {
+        using var session = new FoldbackSession(new FoldbackConfig { TickRateHz = 60, PeerCount = 1 });
         var sw = System.Diagnostics.Stopwatch.StartNew();
         for (var id = 0; id < units.Count; id++)
         {
@@ -382,8 +389,16 @@ catch (ArgumentException)
             session.HashField(0, (ulong)id, "unit.Hp", BitConverter.GetBytes(u.Hp));
         }
         sw.Stop();
-        Console.WriteLine($"explicit:   {entityCount} entities in {sw.Elapsed.TotalMilliseconds:F2} ms");
+        return sw.Elapsed.TotalMilliseconds;
     }
+
+    var reflectiveMs = Enumerable.Range(0, 3).Select(_ => TimeReflectiveMs()).Min();
+    var explicitMs = Enumerable.Range(0, 3).Select(_ => TimeExplicitMs()).Min();
+    Console.WriteLine($"reflective: {entityCount} entities in {reflectiveMs:F2} ms");
+    Console.WriteLine($"explicit:   {entityCount} entities in {explicitMs:F2} ms");
+    var ratio = reflectiveMs / Math.Max(explicitMs, 0.001);
+    Check(ratio <= maxRatio,
+        $"reflective hashing stays within a {maxRatio}x budget of explicit ({ratio:F1}x measured)");
 }
 
 Console.WriteLine();

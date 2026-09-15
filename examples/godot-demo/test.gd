@@ -285,32 +285,54 @@ func _initialize() -> void:
 		print("FAIL: fallback schema frames wrong: ", fallback_frames)
 		all_ok = false
 
-	# Performance: not assumed free (plan §5) — printed for visibility,
-	# not asserted, matching the Bevy/Unity walkers.
+	# Performance: not assumed free (plan §5). Printed either way, and —
+	# a CI regression gate, not just visibility — also asserted against a
+	# generous ratio bound. Best-of-3 timing on real work (1,000
+	# entities) to keep the signal well above CI-runner jitter. Godot's
+	# reflective walk measured ~13x explicit's cost locally (notably
+	# higher than Bevy/Unity's ~3.5-3.7x, likely get_property_list()'s
+	# per-call Dictionary-array construction — see
+	# docs/src/integrations/reflective-hashing.md), so the ceiling here
+	# is wider than the other two engines' — still generous enough to
+	# absorb CI-runner noise, tight enough to catch an order-of-
+	# magnitude regression.
 	const ENTITY_COUNT := 1000
+	const MAX_RATIO := 40.0
 	var units: Array = []
 	for i in range(ENTITY_COUNT):
 		units.append(mk_unit.call(float(i), "d"))
 
-	var perf_session := FoldbackSession.new()
-	perf_session.configure({"tick_rate_hz": 60, "peer_count": 1})
-	var reflective_start := Time.get_ticks_usec()
-	for id in range(ENTITY_COUNT):
-		perf_session.hash_reflected(0, id, "unit", units[id])
-	var reflective_usec := Time.get_ticks_usec() - reflective_start
+	var time_reflective_ms := func() -> float:
+		var perf_session := FoldbackSession.new()
+		perf_session.configure({"tick_rate_hz": 60, "peer_count": 1})
+		var start := Time.get_ticks_usec()
+		for id in range(ENTITY_COUNT):
+			perf_session.hash_reflected(0, id, "unit", units[id])
+		return (Time.get_ticks_usec() - start) / 1000.0
 
-	var explicit_session := FoldbackSession.new()
-	explicit_session.configure({"tick_rate_hz": 60, "peer_count": 1})
-	var explicit_start := Time.get_ticks_usec()
-	for id in range(ENTITY_COUNT):
-		var u: ReflectUnit = units[id]
-		explicit_session.hash_field(0, id, "unit.pos.x", var_to_bytes(u.foldback_pos.foldback_x))
-		explicit_session.hash_field(0, id, "unit.pos.y", var_to_bytes(u.foldback_pos.foldback_y))
-		explicit_session.hash_field(0, id, "unit.hp", var_to_bytes(u.foldback_hp))
-	var explicit_usec := Time.get_ticks_usec() - explicit_start
+	var time_explicit_ms := func() -> float:
+		var explicit_session := FoldbackSession.new()
+		explicit_session.configure({"tick_rate_hz": 60, "peer_count": 1})
+		var start := Time.get_ticks_usec()
+		for id in range(ENTITY_COUNT):
+			var u: ReflectUnit = units[id]
+			explicit_session.hash_field(0, id, "unit.pos.x", var_to_bytes(u.foldback_pos.foldback_x))
+			explicit_session.hash_field(0, id, "unit.pos.y", var_to_bytes(u.foldback_pos.foldback_y))
+			explicit_session.hash_field(0, id, "unit.hp", var_to_bytes(u.foldback_hp))
+		return (Time.get_ticks_usec() - start) / 1000.0
 
-	print("reflective: ", ENTITY_COUNT, " entities in ", reflective_usec / 1000.0, " ms")
-	print("explicit:   ", ENTITY_COUNT, " entities in ", explicit_usec / 1000.0, " ms")
+	var reflective_ms: float = min(time_reflective_ms.call(), min(time_reflective_ms.call(), time_reflective_ms.call()))
+	var explicit_ms: float = min(time_explicit_ms.call(), min(time_explicit_ms.call(), time_explicit_ms.call()))
+
+	print("reflective: ", ENTITY_COUNT, " entities in ", reflective_ms, " ms")
+	print("explicit:   ", ENTITY_COUNT, " entities in ", explicit_ms, " ms")
+	var safe_explicit_ms: float = max(explicit_ms, 0.001)
+	var ratio: float = reflective_ms / safe_explicit_ms
+	if ratio <= MAX_RATIO:
+		print("PASS: reflective hashing stays within a %.1fx budget of explicit (%.1fx measured)" % [MAX_RATIO, ratio])
+	else:
+		print("FAIL: reflective hashing exceeded its %.1fx budget of explicit (%.1fx measured)" % [MAX_RATIO, ratio])
+		all_ok = false
 
 	if all_ok:
 		print("ALL PASS")
