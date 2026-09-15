@@ -40,7 +40,7 @@ Full rationale: [RFC-0001](../project/rfcs/0001-session-file-format.md).
 
 ## 2. Live-mode transport
 
-**Not implemented yet** (Phase 2). Local loopback WebSocket (`ws://127.0.0.1:<port>`), chosen over a Unix socket/named pipe so the exact same message framing works unmodified for a genuinely remote session later, at negligible cost over loopback today.
+**Shipped**: `foldback_core::live` on the game side, `foldback-ui`'s "Connect live…" on the UI side, proven against each other end to end (see `examples/live-demo`). Local loopback WebSocket (`ws://127.0.0.1:<port>`), chosen over a Unix socket/named pipe so the exact same message framing works unmodified for a genuinely remote session later, at negligible cost over loopback today.
 
 ### 2.1 Messages
 
@@ -68,24 +68,9 @@ Keeps the game-side dependency footprint minimal — a lot of this audience is C
 
 ## 3. C ABI surface (`foldback-sys`)
 
-**Not implemented yet** (Phase 3, alongside the Unity binding). Source of truth will be `foldback-sys/include/foldback.h`, generated via `cbindgen` from the Rust crate — the stub `cbindgen.toml` already exists so this is generated from commit zero, never hand-edited.
+**Shipped**: `foldback-sys/include/foldback.h`, generated via `cbindgen` from the Rust crate — never hand-edited, regenerated whenever the crate's public `extern "C"` surface changes. Covers session lifecycle, Level 1/2/3 hashing, schema-drift's `foldback_record_schema`, pending-hash draining, divergence checking, and error reporting; used by the Unity and Unreal bindings (Godot calls `foldback-core` directly through `gdext` instead — see [Architecture](architecture.md)). See [C API](c-api.md) for the header itself, per this project's "link out, don't duplicate" rule for generated references — the sketch this section originally carried predated the real implementation and doesn't match its actual signatures (every fallible call returns a `FoldbackStatus` code, for one, not the return-value-doubles-as-status-and-hash shape an early sketch had), so it's not reproduced here.
 
-```c
-typedef struct FoldbackSession FoldbackSession;
-
-FoldbackSession* foldback_session_create(const FoldbackConfig* config);
-void             foldback_session_destroy(FoldbackSession* session);
-
-uint64_t foldback_hash_tick(FoldbackSession* session, uint64_t tick, const void* state, size_t len);
-uint64_t foldback_hash_entity(FoldbackSession* session, uint64_t tick, uint64_t entity_id, const void* state, size_t len);
-uint64_t foldback_hash_field(FoldbackSession* session, uint64_t tick, uint64_t entity_id, const char* field_name, const void* value, size_t len);
-
-int foldback_snapshot(FoldbackSession* session, uint64_t tick, const void* state, size_t len); // returns 0 on success
-
-int foldback_last_error(const FoldbackSession* session, char* buf, size_t buf_len); // no exceptions across the ABI boundary
-```
-
-All fallible calls return a status code, never throw/panic across the FFI boundary (a Rust panic unwinding into C/C++/C# calling code is undefined behavior) — `foldback-sys` will wrap every entry point in `catch_unwind` and convert to an error code as a hard rule, not a best-effort. Full rationale: [RFC-0002](../project/rfcs/0002-c-abi-surface.md).
+All fallible calls return a status code, never throw/panic across the FFI boundary (a Rust panic unwinding into C/C++/C# calling code is undefined behavior) — every entry point is wrapped in `catch_unwind` and converts to an error code as a hard rule, not a best-effort. Full rationale: [RFC-0002](../project/rfcs/0002-c-abi-surface.md).
 
 ## Rust API reference
 

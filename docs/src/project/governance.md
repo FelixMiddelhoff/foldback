@@ -16,7 +16,7 @@ Protects the *name*, not the code — so a user who downloads something called F
 
 ## Contributor governance
 
-**Phase 0–2: solo maintainer.** No formal governance document needed yet — imposing a committee structure on a one-person project doesn't buy anything at this size. The RFC-shaped planning docs already in this repo (see [RFCs](rfcs/README.md)) are what deliberate design decision-making looks like in practice, even solo.
+**Currently: solo maintainer**, even with all five build-out phases shipped — this isn't a phase-gated thing, formalization is triggered by contributor count (next paragraph), not by how much of the roadmap is done. No formal governance document needed yet — imposing a committee structure on a one-person project doesn't buy anything at this size. The RFC-shaped planning docs already in this repo (see [RFCs](rfcs/README.md)) are what deliberate design decision-making looks like in practice, even solo.
 
 **Trigger to formalize a `GOVERNANCE.md`**: a second contributor merging PRs regularly, not just submitting them. At that point: maintainer tiers (core-crate vs. per-binding, following the repo's own seams), an RFC process for anything touching the protocol spec or C ABI (a markdown doc in `project/rfcs/`, a stated minimum comment period, maintainer consensus or the founding maintainer's tie-break), and normal review-and-merge with no RFC needed for day-to-day PRs.
 
@@ -28,4 +28,4 @@ Protects the *name*, not the code — so a user who downloads something called F
 
 ## Funding
 
-GitHub Sponsors / Open Collective, opt-in, disclosed plainly, once there's real usage to justify it — doesn't change the license or create a paid tier. Not a Phase 0 priority.
+GitHub Sponsors / Open Collective, opt-in, disclosed plainly, once there's real usage to justify it — doesn't change the license or create a paid tier. Not a current priority.

@@ -1,6 +1,6 @@
 # Cookbook
 
-Short, copy-pasteable recipes in the target API shape. Recipes 1, 2, 3, 4, 5, and 7 are shipped (Phase 0/2); everything else is the target shape being built toward — check the status column before assuming a recipe compiles against `main` today.
+Short, copy-pasteable recipes in the target API shape. Recipes 1-5 and 7-9 are shipped; 6 and 10 are partially shipped (the underlying data exists, a documented convenience wrapper doesn't yet) — check the status column before assuming a recipe compiles against `main` today.
 
 Each Rust recipe leaves out error handling you'd keep in real code (`Result` unwraps stand in for real handling).
 
@@ -175,7 +175,7 @@ for pending in session.take_pending_hashes() {
 
 ## 8. Unity integration
 
-Shipped (Phase 3), Level 1 (per-tick) only — see [docs/integrations/unity.md](../integrations/unity.md) for status and the two named gaps (IL2CPP CI leg, Level 2/3 across the FFI boundary).
+Shipped — Level 1 (per-tick), Level 2/3 (per-entity/per-field, `HashEntity`/`HashField` and their peer-recording counterparts), and reflective hashing, all exposed across the FFI boundary and verified under real IL2CPP AOT compilation in CI. See [docs/integrations/unity.md](../integrations/unity.md) for the full status.
 
 ```csharp
 using Foldback;

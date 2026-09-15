@@ -3,15 +3,19 @@
 ## Current CI (implemented)
 
 ```
-fmt-and-lint    cargo fmt --check + clippy -D warnings
-core-test       cargo test --workspace, matrix: ubuntu/windows/macos
-determinism     hash::tests::known_vectors, matrix: ubuntu/windows/macos/
-                ARM64(×2), each at opt-level 0 and 3
+fmt-and-lint            cargo fmt --check + clippy -D warnings --all-features
+core-test               cargo test --workspace --all-features, matrix: ubuntu/windows/macos
+determinism             hash::tests::known_vectors, matrix: ubuntu/windows/macos/
+                        ARM64(×2), each at opt-level 0 and 3
+bindings-unity-cs       .NET P/Invoke harness against a real built foldback_sys,
+                        matrix: ubuntu/windows/macos
+bindings-unity-il2cpp   a real Unity Editor + IL2CPP AOT player build/run, windows-latest
+bindings-godot          a real headless Godot 4.7.2 engine, matrix: ubuntu/windows/macos
 ```
 
-Triggers: `pull_request`, `push` to `main`, `workflow_dispatch`. All three jobs above are required to merge (branch protection on `main`). The `determinism` job is treated as a release blocker if it ever fails — never a flaky-retry candidate, since a desync tool whose own hash isn't cross-platform-stable is self-defeating.
+Triggers: `pull_request`, `push` to `main`, `workflow_dispatch`. All jobs above are required to merge (branch protection on `main`) except `bindings-unity-il2cpp`, which needs real `UNITY_EMAIL`/`UNITY_PASSWORD` secrets and so only runs meaningfully on this repo's own pushes, not arbitrary forks' PRs. The `determinism` job is treated as a release blocker if it ever fails — never a flaky-retry candidate, since a desync tool whose own hash isn't cross-platform-stable is self-defeating.
 
-`cli-golden` tests (golden-file tests in `crates/foldback-cli/tests/golden.rs`) already run as part of `core-test`'s `cargo test --workspace` — no separate job needed while that stays fast. `ui-unit` will be added once `foldback-ui` exists.
+`cli-golden` tests (golden-file tests in `crates/foldback-cli/tests/golden.rs`) and `foldback-ui`'s own unit tests already run as part of `core-test`'s `cargo test --workspace --all-features` — no separate jobs needed while that stays fast. The Unreal binding has no CI leg at all (no scriptable install path for Unreal Engine the way `unity-setup`/a downloaded Godot binary provide for the other two) — verified locally against a real Unreal Engine 5.8.2 build instead; see `bindings/unreal/README.md`.
 
 ## Planned nightly/slow tier (not built yet)
 
@@ -19,9 +23,6 @@ Triggers: `pull_request`, `push` to `main`, `workflow_dispatch`. All three jobs 
 fuzz-full        cargo-fuzz, longer duration than a PR-time smoke run
 ui-visual        Playwright screenshot diff
 ui-e2e           Playwright against a built Tauri app
-bindings-unity   Unity batch-mode divergence-injection integration test
-bindings-godot   Godot --headless divergence-injection integration test
-bindings-unreal  Unreal automation commandlet (Phase 5)
 ```
 
 ## Documentation site
@@ -35,7 +36,7 @@ Single monorepo — one `Cargo.toml` workspace, one CI pipeline, one version-bum
 ## Versioning scheme
 
 - `foldback-core`/`foldback-sys`/`foldback-rs`/`foldback-cli` share one workspace version, bumped together — they're tightly coupled enough that independent versioning would just create confusing "which CLI version works with which core" questions.
-- `foldback-ui` will version independently once it exists — a UI bugfix release shouldn't force a crates.io core bump, and vice versa.
+- `foldback-ui` versions independently — a UI bugfix release shouldn't force a crates.io core bump, and vice versa.
 - Engine bindings will each version independently, but declare a compatible core-version range, once they exist.
 - The `.foldback` file format and live-mode protocol get their own version number (`format_version`, `protocol_version`), independent of crate versions — two different `foldback-cli` versions might both speak `format_version: 1`.
 - Pre-1.0 (`0.x`) for everything until the API has had real usage — not rushing to `1.0.0` just to look mature.

@@ -2,7 +2,7 @@
 
 This walks through the smallest real integration: hashing your simulation's state once per tick and detecting when two runs disagree. It matches [`examples/minimal-rust`](https://github.com/FelixMiddelhoff/foldback/tree/main/examples/minimal-rust) in the repo — run that if you want working code to poke at rather than read.
 
-> Not yet published to crates.io (pre-1.0, Phase 0 just landed). Until then, depend on it as a git or path dependency.
+> Not yet published to crates.io (pre-1.0). Until then, depend on it as a git or path dependency.
 
 ```toml
 [dependencies]

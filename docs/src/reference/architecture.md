@@ -28,15 +28,15 @@ Target audience: indie to mid-size multiplayer game developers (Rust/GGRS, Unity
 
 Three independently useful layers, each shippable on its own:
 
-1. **Core library** (`foldback-core`, Rust) — hashing, snapshot storage, bisection algorithm, session file format. **Shipped, Phase 0.**
-2. **CLI** (`foldback-cli`) — thin binary over the core, produces text/JSON reports, drives CI failures. **Partially shipped** (`analyze`, `ci-check`; `record` deferred — see [CLI Reference](../usage/cli.md)).
-3. **UI** (`foldback-ui`, Tauri + web frontend) — visual timeline, drill-down diff view, live or replay mode. **Shipped, Phase 1** (live mode added Phase 2).
+1. **Core library** (`foldback-core`, Rust) — hashing, snapshot storage, bisection algorithm, session file format. **Shipped.**
+2. **CLI** (`foldback-cli`) — thin binary over the core, produces text/JSON reports, drives CI failures. **Shipped** (`analyze`, `ci-check`, `lint`, `schema-diff`; `record` still deferred — see [CLI Reference](../usage/cli.md)).
+3. **UI** (`foldback-ui`, Tauri + web frontend) — visual timeline, drill-down diff view, live or replay mode. **Shipped**, including live mode.
 
 Engine bindings sit outside the core repo boundary conceptually but ship from the same monorepo:
 
-- `foldback-sys` — raw C ABI header + Rust FFI crate (source of truth for the header, generated via `cbindgen`). **Shipped** (Level 1/2/3), Phase 3.
-- `foldback-rs` — idiomatic Rust wrapper, GGRS/Bevy integration helpers. **Shipped**, Phase 2.
-- Unity (`bindings/unity`), Godot (`bindings/godot`), and Unreal (`bindings/unreal`) bindings — **shipped**, Phases 3–5, all complete including reflective hashing (every engine, including Bevy, now has a walker — see [Auto/Reflective Hashing](../integrations/reflective-hashing.md)) and Unreal's Mass Entity slice. See their respective [integration pages](../integrations/rust-ggrs.md).
+- `foldback-sys` — raw C ABI header + Rust FFI crate (source of truth for the header, generated via `cbindgen`). **Shipped** (Level 1/2/3, plus schema-drift's `foldback_record_schema`).
+- `foldback-rs` — idiomatic Rust wrapper, GGRS/Bevy integration helpers, `bevy`/`bevy-debug-panel` reflective-hashing features. **Shipped.**
+- Unity (`bindings/unity`), Godot (`bindings/godot`), and Unreal (`bindings/unreal`) bindings — **all shipped**, including reflective hashing (every engine, including Bevy, now has a walker — see [Auto/Reflective Hashing](../integrations/reflective-hashing.md)), a real in-editor visibility dock per engine, and Unreal's Mass Entity slice. See their respective [integration pages](../integrations/rust-ggrs.md).
 
 ## Repo layout
 
@@ -47,20 +47,23 @@ foldback/
     foldback-sys/    # C ABI surface (generates foldback.h via cbindgen)
     foldback-rs/     # idiomatic Rust wrapper + GGRS/Bevy helpers
     foldback-cli/    # the `foldback` binary
-  ui/
-    foldback-ui/     # Tauri app (not started)
+    foldback-derive/ # #[derive(FoldbackHash)] proc macro
+    foldback-godot/  # the Godot GDExtension crate (calls foldback-core directly)
+    foldback-ui/     # the Tauri app — shipped
   bindings/
-    unity/           # not started
-    godot/           # not started
-    unreal/          # Phase 5, shipped
+    unity/           # shipped — UPM package, Runtime/ + Editor/
+    godot/           # shipped — GDExtension addon (built from crates/foldback-godot)
+    unreal/          # shipped
   docs/              # this site
   examples/
-    minimal-rust/    # shipped — smallest integration, no engine
-    ggrs-demo/       # Phase 2
-    unity-demo/      # Phase 3
-    godot-demo/      # Phase 4
-    unreal-demo/     # Phase 5 — custom fixed-tick lockstep integration
-    unreal-mass-demo/# Phase 5 — Mass Entity integration
+    minimal-rust/       # shipped — smallest integration, no engine
+    ggrs-demo/          # shipped
+    live-demo/          # shipped — live-mode transport end to end
+    bevy-editor-demo/   # shipped — a real bevy_egui in-editor dock
+    unity-demo/         # shipped
+    godot-demo/         # shipped
+    unreal-demo/        # shipped — custom fixed-tick lockstep integration
+    unreal-mass-demo/   # shipped — Mass Entity integration
 ```
 
 ## Why Rust for the core

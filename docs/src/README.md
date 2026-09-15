@@ -2,7 +2,7 @@
 
 Foldback finds exactly where and why your lockstep/rollback simulation desynced — one hook per tick, a bisection engine that narrows a mismatch down to the field, and a UI that turns a wall of hash logs into a timeline you can point at.
 
-> **Status**: Phase 0 (core library + CLI) is done. The UI, live mode, and every engine binding beyond a bare Rust example are not built yet — see [How Foldback Works](getting-started/how-it-works.md) for what exists today versus what's planned.
+> **Status**: core library, CLI, UI (offline + live mode), and all four engine bindings (Rust/GGRS/Bevy, Unity, Godot, Unreal) are shipped, including reflective (auto) hashing for Bevy/Unity/Godot and a real in-editor visibility dock for all three. Not yet published to crates.io (pre-1.0). See [How Foldback Works](getting-started/how-it-works.md) for the full breakdown of what exists today versus what's still open.
 
 ## The gap
 
@@ -34,10 +34,10 @@ If a peer's hash for a tick doesn't match, `session.check_divergence()` returns 
 
 | Engine | Status |
 |---|---|
-| [Rust / GGRS / Bevy](integrations/rust-ggrs.md) | Core API ships today; GGRS-specific hook is Phase 2 |
-| [Unity](integrations/unity.md) | **Shipped** (Phase 3, explicit binding + reflective hashing) |
-| [Godot](integrations/godot.md) | **Shipped** (Phase 4, explicit binding + reflective hashing) |
-| [Unreal Engine](integrations/unreal.md) | **Shipped** (Phase 5 complete — explicit binding, reflective hashing, and Mass Entity integration) |
+| [Rust / GGRS / Bevy](integrations/rust-ggrs.md) | **Shipped** — core API, GGRS bridge, explicit + reflective hashing, an in-editor `bevy_egui` dock |
+| [Unity](integrations/unity.md) | **Shipped** — explicit + reflective hashing, an in-editor `EditorWindow` dock, verified under IL2CPP AOT |
+| [Godot](integrations/godot.md) | **Shipped** — explicit + reflective hashing, an in-editor dock plugin |
+| [Unreal Engine](integrations/unreal.md) | **Shipped** — explicit binding, reflective hashing, and a Mass Entity integration |
 
 ## Further down
 

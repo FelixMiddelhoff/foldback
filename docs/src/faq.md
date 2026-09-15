@@ -1,9 +1,9 @@
 # FAQ
 
-This page grows from real questions people actually ask, not speculation — short for now since the project is Phase 0.
+This page grows from real questions people actually ask, not speculation — short for now, before there's a wide external user base to draw more from.
 
 **Is Foldback ready to use?**
-The core library (`foldback-core`) and part of the CLI (`analyze`, `ci-check`) are shipped and tested. There's no UI yet, no engine bindings beyond raw Rust, and no crates.io release. See [How Foldback Works](getting-started/how-it-works.md) for exactly what exists today.
+The core library, CLI, UI (offline + live mode), and all four engine bindings are shipped and tested — see [How Foldback Works](getting-started/how-it-works.md) for exactly what exists today. Not yet on crates.io (pre-1.0); the remaining pre-launch items are non-code (code signing, external validation), not missing functionality.
 
 **Why xxHash3 and not a cryptographic hash?**
 This is integrity-checking (did two peers compute the same state), not security — a non-cryptographic hash is faster and that's the only property that matters here. See the [performance spike](project/performance.md) for why speed was worth validating rather than assuming.

@@ -1,8 +1,8 @@
 # Testing Strategy
 
-## Current status (Phase 0)
+## Current status
 
-32 unit/proptest tests in `foldback-core`, 8 golden-file/integration tests in `foldback-cli`, all passing on every push (fmt, clippy, cross-OS test, and the `determinism` job). A `cargo-fuzz` harness for the session-file parser — the highest-value fuzz target per §1.3 below — is not set up yet; a real gap, tracked, not blocking Phase 0.
+Every crate and binding carries real tests, not just compiled code: unit/proptest coverage in `foldback-core`, golden-file/integration tests in `foldback-cli`, FFI-boundary tests in `foldback-sys` (run against a real built native library), and each engine binding verified against its own real toolchain in CI — a .NET P/Invoke harness *and* a real IL2CPP AOT build for Unity, a real headless Godot engine for Godot, a real locally-built Unreal Engine for Unreal (no hosted CI leg — see `bindings/unreal/README.md` for why). All green on every push (`fmt`, `clippy`, cross-OS `test`, and the `determinism` job) — exact test counts drift too fast to keep accurate here, check CI for the current numbers. A `cargo-fuzz` harness for the session-file parser — the highest-value fuzz target per §1.3 below — is not set up yet; a real, still-open gap.
 
 ## 1. Core library (`foldback-core`)
 
@@ -10,7 +10,7 @@
 
 **Property-based tests** (`proptest`) — session file round-trip over arbitrary frame sequences, bisection engine over arbitrary hash trees with a randomly-placed single injected divergence, ring buffer retention invariant over arbitrary push sequences. Implemented for the ring buffer and bisection engine; the full session-file-round-trip property test isn't written yet.
 
-**Fuzzing** (`cargo-fuzz`) — not set up yet. The session file parser is the highest-value target: it will eventually be fed real files from the wild (users attaching `.foldback` files to bug reports), including corrupted/truncated/adversarial ones. The C ABI surface (`foldback-sys`) is a second target, once it exists (Phase 3).
+**Fuzzing** (`cargo-fuzz`) — not set up yet. The session file parser is the highest-value target: it will eventually be fed real files from the wild (users attaching `.foldback` files to bug reports), including corrupted/truncated/adversarial ones. The C ABI surface (`foldback-sys`, shipped) is a second target.
 
 **Cross-platform determinism tests** — the one category that isn't "does the code work" but "does the *hash* mean what it claims to mean." Implemented as the CI `determinism` job: `hash::tests::known_vectors` runs across Linux/Windows/macOS × x86_64/ARM64, asserting a fixed input hashes to a pinned constant on every platform, plus the same test at `-O0` and `-O3` to catch compiler-introduced non-determinism independent of the game's own code.
 
