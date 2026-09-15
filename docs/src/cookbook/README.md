@@ -15,6 +15,10 @@ Each Rust recipe leaves out error handling you'd keep in real code (`Result` unw
 | 7 | [Live mode](#7-live-mode) |
 | 8 | [Unity integration](#8-unity-integration) |
 | 9 | [Godot integration](#9-godot-integration) |
+| 10 | [Unreal integration](#10-unreal-integration) |
+| 11 | [Reflective (auto) hashing](#11-reflective-auto-hashing) |
+| 12 | [Scanning a source tree for tagged fields](#12-scanning-a-source-tree-for-tagged-fields) |
+| 13 | [Catching schema drift between builds](#13-catching-schema-drift-between-builds) |
 
 ---
 
@@ -209,4 +213,127 @@ func _physics_process(_delta):
 GDExtension binding (`bindings/godot`) exposes the same core through a GDScript-native `FoldbackSession` class rather than raw FFI calls — built directly on `gdext` (godot-rust) rather than through `foldback-sys`'s C ABI, since `gdext` generates the GDExtension registration itself.
 
 A GDExtension class's `.new()` calls its zero-argument `_init`, so there's no supported way to route constructor arguments through it directly — hence the two-step `.new()` then `.configure(dict) -> bool` shape, returning `false` and setting `get_last_error()` on failure rather than throwing. `u64` hashes cross into GDScript as `i64` via exact bit-reinterpretation (GDScript's only integer type) — a hash may print as negative, which is expected and harmless for equality-based divergence checks.
+
+---
+
+## 10. Unreal integration
+
+```cpp
+#include "FoldbackSession.h"
+
+FFoldbackSession Session;
+
+FFoldbackSession::FConfig Config;
+Config.TickRateHz = 60;
+Config.PeerCount = 2;
+Session.Configure(Config);
+
+// each tick:
+TArray<uint8> State = SerializeDeterministicState();
+Session.HashTick(Tick, State);
+
+for (const auto& Pending : Session.TakePendingHashes(/*Max=*/64))
+{
+    SendToPeers(Pending.Key /* tick */, Pending.Value /* hash */);
+}
+```
+
+`FFoldbackSession` is plain C++ (not a `UObject`) — usable directly, as above, or through `UFoldbackSubsystem` (a `UGameInstanceSubsystem`) for Blueprint access. Both wrap the same `foldback-sys` C ABI Unity uses, rather than going through `gdext` the way Godot does — see [Unreal Engine](../integrations/unreal.md) for the full binding surface and its Mass Entity integration.
+
+---
+
+## 11. Reflective (auto) hashing
+
+Get Level 3 (per-field) bisection without a hand-written `hash_field`/`HashField` call per field — the binding walks the engine's own reflection system instead. Opt-in per field, same as recipe 5, just marked and discovered a different way per engine:
+
+```rust
+// Bevy — foldback_rs::bevy::hash_reflected
+use foldback_rs::bevy::hash_reflected;
+
+#[derive(Reflect, FoldbackHash)]
+struct Unit {
+    #[foldback(reflect)] // compound field — the walker recurses into it
+    pos: Position,
+    #[foldback(hash)]    // primitive field — hashed directly, same as recipe 5
+    hp: i32,
+    debug_label: String, // unmarked — invisible to the walker
+}
+
+let preview = hash_reflected(&mut session, tick, entity_id, "unit", &unit)?;
+```
+
+```csharp
+// Unity — FoldbackReflection.HashReflected
+class Unit
+{
+    [FoldbackHash] public Position Pos;
+    [FoldbackHash] public int Hp;
+    public string DebugLabel; // unmarked
+}
+var preview = FoldbackReflection.HashReflected(session, tick, entityId, "unit", unit);
+```
+
+```gdscript
+# Godot — FoldbackSession.hash_reflected. No custom attribute system in
+# GDScript, so the marker is a `foldback_` name prefix instead.
+class Unit extends RefCounted:
+    var foldback_pos: Position
+    var foldback_hp: int = 0
+    var debug_label: String = ""
+
+var preview: Array = session.hash_reflected(tick, entity_id, "unit", unit)
+```
+
+```cpp
+// Unreal — FFoldbackReflectiveHasher::HashTaggedFields, over the
+// existing UPROPERTY meta system rather than a new attribute
+USTRUCT()
+struct FUnit
+{
+    UPROPERTY(meta=(FoldbackHash)) FVector Pos;
+    UPROPERTY(meta=(FoldbackHash)) int32 Hp;
+    UPROPERTY() FString DebugLabel; // unmarked
+};
+
+FUnit UnitInstance;
+FFoldbackReflectiveHasher::HashTaggedFields(Session, Tick, EntityId, FUnit::StaticStruct(), &UnitInstance);
+```
+
+All four return the same `(field path, hash)` data the manual API would have recorded, just discovered reflectively. This trades integration cost for runtime cost — reflective hashing runs roughly 3.5-19x an equivalent explicit `hash_fields` call depending on engine (Godot's `get_property_list()` is the notable outlier) — so it's a dev/editor-build tool layered on top of the explicit API, not a release-build default. See [Auto/Reflective Hashing](../integrations/reflective-hashing.md) for the full per-engine picture: determinism hazards (unordered containers, cycles, enum representation), visibility tooling, and each engine's in-editor dock.
+
+---
+
+## 12. Scanning a source tree for tagged fields
+
+Because reflection makes it easy to lose track of *what* is actually being hashed (no derive-macro call site to grep for), `foldback lint` statically scans Bevy/Rust source for `#[derive(FoldbackHash)]` structs and prints each one's tracked fields alongside its untagged siblings — the "did you mean to include this one too" check.
+
+```bash
+foldback lint --engine bevy src/
+```
+
+```
+Unit (src/game/unit.rs)
+  tracked   : hp, pos
+  untracked : debug_label
+```
+
+Unity/Godot/Unreal don't have their own static scanners — each has other visibility tooling instead (`ListTracked`/`list_tracked` reflective queries, plus a real in-editor dock for all three engines). See [Auto/Reflective Hashing](../integrations/reflective-hashing.md) for what each engine actually ships.
+
+---
+
+## 13. Catching schema drift between builds
+
+If a reflected type's tagged-field set changes between the build that recorded a `.foldback` session and the build now analyzing it (someone added a field mid-development), comparing the two blindly can mistake that for a real divergence. Every reflective walker (recipe 11) records each type's tagged-field fingerprint automatically — no extra call needed on your part — so `foldback schema-diff` can catch the mismatch after the fact:
+
+```bash
+foldback schema-diff old-build.foldback new-build.foldback
+```
+
+```
+SCHEMA DRIFT: my_game::Unit
+  before : hp,pos
+  after  : hp,pos,shield
+```
+
+Exit code `1` on drift, `0` if the two builds' recorded schemas agree (or if a file has no schema metadata at all — e.g. it only used explicit hashing). See [CLI Reference](../usage/cli.md#foldback-schema-diff-before-after) for the full contract.
 
