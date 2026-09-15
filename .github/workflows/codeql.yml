@@ -23,11 +23,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Matches this repo's actual languages: Rust (the core/CLI/UI/
-        # bindings), C# (the Unity binding), C/C++ (the Unreal plugin
-        # and Godot's native gdext surface), and the workflow files
-        # themselves.
-        language: [rust, csharp, c-cpp, actions]
+        # rust: core/CLI/UI/bindings. csharp: the Unity binding, built
+        # via the same dotnet console harness CI already uses. actions:
+        # the workflow files themselves.
+        #
+        # c-cpp deliberately excluded, confirmed not just assumed: the
+        # Unreal plugin's real C++ source (bindings/unreal/Source/) is
+        # the only standalone C/C++ here, and CodeQL's C/C++ extractor
+        # needs to trace an actual compiler invocation to extract
+        # anything — tried it, got "CodeQL detected code written in
+        # C/C++ but could not process any of it," because compiling
+        # against UE's headers needs a real Unreal Engine install, which
+        # (per bindings/unreal/README.md) has no scriptable install path
+        # for a hosted runner. Same disclosed gap as that binding's own
+        # missing CI leg, not a silent omission.
+        language: [rust, csharp, actions]
     steps:
       - uses: actions/checkout@v4
 
@@ -39,24 +49,15 @@ jobs:
           languages: ${{ matrix.language }}
           queries: security-extended
 
-      # C#/C++ need an actual build for CodeQL to analyze (compiled
-      # languages) — Rust's `autobuild` below handles the Cargo
-      # workspace fine on its own, but the Unity harness and the C++
-      # bindings need their own build commands.
+      # C# needs an actual build for CodeQL to analyze (a compiled
+      # language) — Rust's `autobuild` below handles the Cargo workspace
+      # fine on its own.
       - if: matrix.language == 'csharp'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
       - if: matrix.language == 'csharp'
         run: dotnet build bindings/unity/Tests~/FoldbackSys.Tests
-
-      - if: matrix.language == 'c-cpp'
-        run: |
-          echo "No standalone C/C++ build here — Unreal needs a full Unreal Engine \
-          install (see bindings/unreal/README.md) and isn't buildable on a hosted \
-          runner; Godot's C/C++ surface is generated gdext binding code compiled \
-          as part of the Rust build. CodeQL's C/C++ extractor still scans the \
-          checked-in headers/sources it can see without a full build."
 
       # `actions` (scanning the workflow YAML itself) is interpreted, not
       # compiled — no build step needed, autobuild would be a no-op at
