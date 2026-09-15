@@ -1,0 +1,35 @@
+version: 2
+updates:
+  # The Cargo workspace — foldback-core, foldback-sys, foldback-rs,
+  # foldback-cli, foldback-ui, foldback-derive, foldback-godot, and the
+  # example crates all resolve through the one root Cargo.lock.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      # Bundles routine patch/minor bumps into one PR instead of one per
+      # crate — a determinism-sensitive project still wants to review
+      # dependency changes, just not fifty separate review threads for
+      # a week of patch releases.
+      cargo-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # The standalone cargo-fuzz harness — its own Cargo.lock, deliberately
+  # detached from the root workspace (see crates/foldback-core/fuzz/
+  # Cargo.toml's own `[workspace]` comment).
+  - package-ecosystem: "cargo"
+    directory: "/crates/foldback-core/fuzz"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # GitHub Actions workflow dependencies (actions/checkout, dtolnay/
+  # rust-toolchain, etc.) — pinned by tag, same reasoning as pinning any
+  # other dependency.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
