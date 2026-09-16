@@ -229,7 +229,7 @@ jobs:
           cp "${{ matrix.lib_src }}" "examples/godot-demo/addons/foldback/bin/${{ matrix.lib_dst }}"
       - name: Cache the Godot engine download
         id: godot-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: godot-bin
           key: godot-4.7.2-stable-${{ matrix.os }}
