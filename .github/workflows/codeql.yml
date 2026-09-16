@@ -47,7 +47,7 @@ jobs:
         # missing CI leg, not a silent omission.
         language: [rust, csharp, actions]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - if: matrix.language == 'rust'
         uses: dtolnay/rust-toolchain@stable
