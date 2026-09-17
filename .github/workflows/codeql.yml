@@ -47,12 +47,12 @@ jobs:
         # missing CI leg, not a silent omission.
         language: [rust, csharp, actions]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - if: matrix.language == 'rust'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
 
-      - uses: github/codeql-action/init@v4
+      - uses: github/codeql-action/init@311b4ee155dcdab395044f00946f664bd51ff173 # v4
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
@@ -61,7 +61,7 @@ jobs:
       # language) — Rust's `autobuild` below handles the Cargo workspace
       # fine on its own.
       - if: matrix.language == 'csharp'
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "8.0.x"
       - if: matrix.language == 'csharp'
@@ -71,8 +71,8 @@ jobs:
       # compiled — no build step needed, autobuild would be a no-op at
       # best.
       - if: matrix.language == 'rust'
-        uses: github/codeql-action/autobuild@v4
+        uses: github/codeql-action/autobuild@311b4ee155dcdab395044f00946f664bd51ff173 # v4
 
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@311b4ee155dcdab395044f00946f664bd51ff173 # v4
         with:
           category: "/language:${{ matrix.language }}"

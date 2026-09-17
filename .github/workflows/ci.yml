@@ -6,16 +6,21 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# None of these jobs push commits, comment, or otherwise write to the repo
+# -- read-only is enough for checkout, build, and test.
+permissions:
+  contents: read
+
 jobs:
   fmt-and-lint:
     name: fmt + clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       # foldback-ui (Tauri) needs these to even compile on Linux — without
       # them `cargo clippy --workspace` fails on missing system libs, not
       # a lint finding. Same list `core-test`'s ubuntu-latest leg needs.
@@ -38,9 +43,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: Install Tauri Linux system deps
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -70,9 +75,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest, ubuntu-24.04-arm, macos-14]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: known vectors at opt-level 0
         run: cargo test -p foldback-core hash::tests::known_vectors
         env:
@@ -96,10 +101,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "8.0.x"
       - run: cargo build -p foldback-sys
@@ -136,16 +141,16 @@ jobs:
     # PRs, none of which touch the Unity project at all).
     if: github.actor != 'dependabot[bot]'
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - run: cargo build -p foldback-sys
       - name: Stage the native library where the Unity project expects it
         shell: bash
         run: |
           mkdir -p examples/unity-demo/Assets/Plugins/x86_64
           cp target/debug/foldback_sys.dll examples/unity-demo/Assets/Plugins/x86_64/
-      - uses: buildalon/unity-setup@v2
+      - uses: buildalon/unity-setup@1a2acb0efbce77c0f90b79ced6a9c6a37ae534c2 # v2
         with:
           unity-version: "6000.6.0f1"
           modules: windows-il2cpp
@@ -155,7 +160,7 @@ jobs:
           # caching for a subsequent run to recognize the install as
           # already done, which a naive directory-only cache wouldn't).
           cache-installation: true
-      - uses: buildalon/activate-unity-license@v2
+      - uses: buildalon/activate-unity-license@87b3a82bac7ca7609eacdb2bec31c8a8a142ed9a # v2
         with:
           # Personal license (the default `license: personal`) only needs
           # username/password — no serial, that's Professional-only.
@@ -179,7 +184,7 @@ jobs:
           cat examples/unity-demo/il2cpp-result.txt
           grep -q "^PASS$" examples/unity-demo/il2cpp-result.txt
 
-  # Phase 4 — Godot binding (cookbook recipe 9). Builds the real
+  # Godot binding (cookbook recipe 9). Builds the real
   # foldback-godot cdylib, stages it into examples/godot-demo's GDExtension
   # addon folder, then runs a real Godot engine (downloaded directly from
   # the official godotengine/godot-builds release, same "verify the exact
@@ -218,9 +223,9 @@ jobs:
             lib_dst: libfoldback_godot.dylib
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - run: cargo build -p foldback-godot
       - name: Stage the native library into the addon's bin folder
         shell: bash
@@ -229,7 +234,7 @@ jobs:
           cp "${{ matrix.lib_src }}" "examples/godot-demo/addons/foldback/bin/${{ matrix.lib_dst }}"
       - name: Cache the Godot engine download
         id: godot-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: godot-bin
           key: godot-4.7.2-stable-${{ matrix.os }}
@@ -279,9 +284,9 @@ jobs:
     needs: fmt-and-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@nightly
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@be39649afda95dbf70f87cce95f68b8d5797b296 # nightly
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
         with:
           workspaces: crates/foldback-core/fuzz -> target
       - run: cargo install cargo-fuzz
@@ -294,5 +299,3 @@ jobs:
   # as part of `core-test`'s `cargo test --workspace` (crates/foldback-cli
   # /tests/golden.rs) — no separate job needed while that stays fast
   # enough to live in the fast loop.
-  #
-  # ui-unit: Vitest component tests — added once foldback-ui exists.
