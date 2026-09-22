@@ -160,7 +160,7 @@ jobs:
           # caching for a subsequent run to recognize the install as
           # already done, which a naive directory-only cache wouldn't).
           cache-installation: true
-      - uses: buildalon/activate-unity-license@87b3a82bac7ca7609eacdb2bec31c8a8a142ed9a # v2
+      - uses: buildalon/activate-unity-license@e0d245d0787b7b9931b56ccbde3b508f6b70f1af # v2
         with:
           # Personal license (the default `license: personal`) only needs
           # username/password — no serial, that's Professional-only.
