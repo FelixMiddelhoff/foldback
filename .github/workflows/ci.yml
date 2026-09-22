@@ -150,7 +150,7 @@ jobs:
         run: |
           mkdir -p examples/unity-demo/Assets/Plugins/x86_64
           cp target/debug/foldback_sys.dll examples/unity-demo/Assets/Plugins/x86_64/
-      - uses: buildalon/unity-setup@1a2acb0efbce77c0f90b79ced6a9c6a37ae534c2 # v2
+      - uses: buildalon/unity-setup@30fcbcb56c10ea5d64298e970d952b8d29bc268b # v2
         with:
           unity-version: "6000.6.0f1"
           modules: windows-il2cpp
